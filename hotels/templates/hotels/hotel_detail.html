@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ hotel.name }}</title>
+</head>
+<body>
+    <h1>{{ hotel.name }}</h1>
+    <p>Location: {{ hotel.location }}</p>
+    <p>Rating: {{ hotel.rating }}</p>
+    <p>{{ hotel.description }}</p>
+
+    <h2>Available Room Types</h2>
+    {% if rooms %}
+        <ul>
+        {% for room in rooms %}
+            <li>
+                {{ room.get_room_type_display }} —
+                {{ room.price_per_night }} per night —
+                Capacity: {{ room.capacity }} guests —
+                {{ room.available_rooms }} rooms available
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No rooms listed for this hotel yet.</p>
+    {% endif %}
+</body>
+</html>
