@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hotel Search Results</title>
+</head>
+<body>
+    <h1>Search Results</h1>
+    <p>Destination: {{ destination }} | Guests: {{ guests }}</p>
+
+    {% if rooms %}
+        <ul>
+        {% for room in rooms %}
+            <li>
+                <strong><a href="{% url 'hotels:hotel_detail' room.hotel.id %}">{{ room.hotel.name }}</a></strong> - {{ room.hotel.location }}
+                <br>Room Type: {{ room.get_room_type_display }}
+                <br>Price per night: {{ room.price_per_night }}
+                <br>Capacity: {{ room.capacity }} guests
+                <br>Available rooms: {{ room.available_rooms }}
+            </li>
+            <br>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No rooms found matching your search.</p>
+    {% endif %}
+</body>
+</html>
