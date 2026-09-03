@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 
 
 class Notification(models.Model):
@@ -9,11 +9,7 @@ class Notification(models.Model):
         ('cancellation', 'Cancellation'),
     ]
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='notifications'
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     notification_type = models.CharField(
         max_length=30,
         choices=NOTIFICATION_TYPE_CHOICES
