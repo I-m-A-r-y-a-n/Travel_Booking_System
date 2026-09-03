@@ -61,3 +61,14 @@ def book_bus_view(request, bus_id):
 def my_bookings_view(request):
     bookings = Booking.objects.filter(user=request.user).order_by('-booking_date')
     return render(request, 'bookings/my_bookings.html', {'bookings': bookings})
+
+@login_required
+def cancel_booking_view(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+
+    if request.method == 'POST':
+        booking.status = 'cancelled'
+        booking.save()
+        return redirect('my_bookings')
+
+    return render(request, 'bookings/cancel_booking.html', {'booking': booking})

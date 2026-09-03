@@ -13,6 +13,9 @@
                 Status: {{ booking.status }} —
                 ₹{{ booking.total_price }} —
                 {{ booking.booking_date }}
+                {% if booking.status == 'confirmed' %}
+                    <a href="{% url 'cancel_booking' booking.id %}">Cancel</a>
+                {% endif %}
             </li>
         {% endfor %}
         </ul>
