@@ -55,4 +55,4 @@ def book_room(request, room_id):
     room.available_rooms -= 1
     room.save()
 
-    return redirect('payments:process_payment', booking_id=booking.id)
+    return redirect('payments:choose_payment_method', booking_id=booking.id)
