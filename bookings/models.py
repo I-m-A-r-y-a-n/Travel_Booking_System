@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from flights.models import Flight
 from buses.models import Bus
-
+from hotels.models import Hotel
 
 class Booking(models.Model):
     BOOKING_TYPE_CHOICES = [
@@ -22,7 +22,7 @@ class Booking(models.Model):
 
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE, null=True, blank=True)
     bus = models.ForeignKey(Bus, on_delete=models.CASCADE, null=True, blank=True)
-    # hotel field will be added by Harish once the Hotel model exists
+    hotel = models.ForeignKey(Hotel, on_delete=models.CASCADE, null=True, blank=True)
 
     booking_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')

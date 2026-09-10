@@ -1,5 +1,5 @@
 from django.db import models
-
+from bookings.models import Booking
 class Payment(models.Model):
     PAYMENT_METHOD_CHOICES = [
         ('CARD', 'Card'),
@@ -12,10 +12,7 @@ class Payment(models.Model):
         ('SUCCESS', 'Success'),
         ('FAILED', 'Failed'),
     ]
-
-    # NOTE: booking = models.ForeignKey('bookings.Booking', on_delete=models.CASCADE)
-    # This will be added once the Booking model exists in bookings/models.py.
-    # For now, Payment exists as a standalone foundation.
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
 
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
