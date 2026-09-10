@@ -2,27 +2,75 @@
 <html>
 <head>
     <title>{{ hotel.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f6fa;
+            margin: 0;
+            padding: 40px;
+            color: #2f3542;
+        }
+        .hotel-header {
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .hotel-header h1 {
+            margin: 0 0 8px 0;
+            color: #1e3799;
+        }
+        .hotel-header p {
+            margin: 4px 0;
+            color: #57606f;
+        }
+        h2 {
+            color: #1e3799;
+        }
+        .room-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .room-card {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .room-card strong {
+            color: #1e3799;
+        }
+        .no-rooms {
+            color: #e84118;
+        }
+    </style>
 </head>
 <body>
-    <h1>{{ hotel.name }}</h1>
-    <p>Location: {{ hotel.location }}</p>
-    <p>Rating: {{ hotel.rating }}</p>
-    <p>{{ hotel.description }}</p>
+    <div class="hotel-header">
+        <h1>{{ hotel.name }}</h1>
+        <p>📍 {{ hotel.location }}</p>
+        <p>⭐ Rating: {{ hotel.rating }}</p>
+        <p>{{ hotel.description }}</p>
+    </div>
 
     <h2>Available Room Types</h2>
     {% if rooms %}
-        <ul>
+        <ul class="room-list">
         {% for room in rooms %}
-            <li>
-                {{ room.get_room_type_display }} —
-                {{ room.price_per_night }} per night —
-                Capacity: {{ room.capacity }} guests —
-                {{ room.available_rooms }} rooms available
+            <li class="room-card">
+                <strong>{{ room.get_room_type_display }}</strong>
+                <p>₹{{ room.price_per_night }} per night</p>
+                <p>Capacity: {{ room.capacity }} guests</p>
+                <p>{{ room.available_rooms }} rooms available</p>
             </li>
         {% endfor %}
         </ul>
     {% else %}
-        <p>No rooms listed for this hotel yet.</p>
+        <p class="no-rooms">No rooms listed for this hotel yet.</p>
     {% endif %}
 </body>
 </html>

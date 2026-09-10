@@ -2,26 +2,78 @@
 <html>
 <head>
     <title>Hotel Search Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f6fa;
+            margin: 0;
+            padding: 40px;
+            color: #2f3542;
+        }
+        h1 {
+            color: #1e3799;
+        }
+        .search-info {
+            background: #ffffff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .room-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .room-card {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .room-card a {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #1e3799;
+            text-decoration: none;
+        }
+        .room-card a:hover {
+            text-decoration: underline;
+        }
+        .room-card p {
+            margin: 6px 0;
+            color: #57606f;
+        }
+        .no-results {
+            color: #e84118;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <h1>Search Results</h1>
-    <p>Destination: {{ destination }} | Guests: {{ guests }}</p>
+    <div class="search-info">
+        Destination: <strong>{{ destination }}</strong> | Guests: <strong>{{ guests }}</strong>
+    </div>
 
     {% if rooms %}
-        <ul>
+        <ul class="room-list">
         {% for room in rooms %}
-            <li>
-                <strong><a href="{% url 'hotels:hotel_detail' room.hotel.id %}">{{ room.hotel.name }}</a></strong> - {{ room.hotel.location }}
-                <br>Room Type: {{ room.get_room_type_display }}
-                <br>Price per night: {{ room.price_per_night }}
-                <br>Capacity: {{ room.capacity }} guests
-                <br>Available rooms: {{ room.available_rooms }}
+            <li class="room-card">
+                <a href="{% url 'hotels:hotel_detail' room.hotel.id %}">{{ room.hotel.name }}</a>
+                <p>{{ room.hotel.location }}</p>
+                <p>Room Type: {{ room.get_room_type_display }}</p>
+                <p>Price per night: ₹{{ room.price_per_night }}</p>
+                <p>Capacity: {{ room.capacity }} guests</p>
+                <p>Available rooms: {{ room.available_rooms }}</p>
             </li>
-            <br>
         {% endfor %}
         </ul>
     {% else %}
-        <p>No rooms found matching your search.</p>
+        <p class="no-results">No rooms found matching your search.</p>
     {% endif %}
 </body>
 </html>
