@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flight Search</title>
+</head>
+<body>
+    <h2>Search Flights</h2>
+    <form method="get">
+        {{ form.as_p }}
+        <button type="submit">Search</button>
+    </form>
+
+    {% if flights %}
+        <h3>Results</h3>
+        <ul>
+        {% for flight in flights %}
+            <li>
+                {{ flight.airline_name }} ({{ flight.flight_number }}) —
+                {{ flight.departure_city }} → {{ flight.destination_city }} —
+                {{ flight.departure_time }} — ₹{{ flight.price }}
+                <a href="{% url 'book_flight' flight.id %}">Book</a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% elif request.GET %}
+        <p>No flights found for that search.</p>
+    {% endif %}
+</body>
+</html>
