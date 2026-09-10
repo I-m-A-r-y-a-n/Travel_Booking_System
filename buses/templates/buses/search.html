@@ -1,29 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Bus Search</title>
-</head>
-<body>
-    <h2>Search Buses</h2>
-    <form method="get">
-        {{ form.as_p }}
-        <button type="submit">Search</button>
-    </form>
+{% extends 'base.html' %}
 
-    {% if buses %}
-        <h3>Results</h3>
-        <ul>
-        {% for bus in buses %}
-            <li>
+{% block title %}Search Buses{% endblock %}
+
+{% block content %}
+<h2>Search Buses</h2>
+<form method="get">
+    {{ form.as_p }}
+    <button type="submit">Search</button>
+</form>
+
+{% if buses %}
+    <h3>Results</h3>
+    <ul class="result-list">
+    {% for bus in buses %}
+        <li>
+            <span>
                 {{ bus.operator_name }} ({{ bus.bus_number }}) —
                 {{ bus.starting_location }} → {{ bus.destination }} —
                 {{ bus.departure_time }} — ₹{{ bus.price }}
-                <a href="{% url 'book_bus' bus.id %}">Book</a>
-            </li>
-        {% endfor %}
-        </ul>
-    {% elif request.GET %}
-        <p>No buses found for that search.</p>
-    {% endif %}
-</body>
-</html>
+            </span>
+            <a href="{% url 'book_bus' bus.id %}">Book</a>
+        </li>
+    {% endfor %}
+    </ul>
+{% elif request.GET %}
+    <p>No buses found for that search.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,136 @@
+:root {
+    --color-primary: #1B4B5A;
+    --color-accent: #F4A259;
+    --color-bg: #FAF7F2;
+    --color-text: #2D2D2D;
+    --color-border: #E8E2D6;
+
+    --font-heading: 'Fraunces', serif;
+    --font-body: 'Inter', sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-body);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+h1, h2, h3 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    margin-top: 0;
+}
+
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Header */
+.site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 2rem;
+    background-color: var(--color-primary);
+    border-bottom: 3px solid var(--color-accent);
+}
+
+.site-logo {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.site-logo:hover {
+    text-decoration: none;
+}
+
+.site-nav a {
+    color: #fff;
+    margin-left: 1.5rem;
+    font-size: 0.95rem;
+}
+
+/* Main content */
+.site-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+}
+
+/* Forms */
+form p {
+    margin-bottom: 1rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+input, select {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    background-color: #fff;
+}
+
+input:focus, select:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+button {
+    background-color: var(--color-accent);
+    color: var(--color-text);
+    border: none;
+    padding: 0.7rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-body);
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+/* Lists (search results, bookings) */
+.result-list {
+    list-style: none;
+    padding: 0;
+}
+
+.result-list li {
+    padding: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    background-color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.error-text {
+    color: #B3261E;
+    font-size: 0.9rem;
+}
