@@ -13,14 +13,14 @@ def book_flight_view(request, flight_id):
 
     if request.method == 'POST':
         if seats_available > 0:
-            Booking.objects.create(
+            booking = Booking.objects.create(
                 user=request.user,
                 booking_type='flight',
                 flight=flight,
                 total_price=flight.price,
-                status='confirmed'
+                status='pending'
             )
-            return redirect('my_bookings')
+            return redirect('payments:process_payment', booking_id=booking.id)
         else:
             return render(request, 'bookings/confirm_booking.html', {
                 'item': flight, 'item_type': 'Flight', 'sold_out': True
@@ -39,14 +39,14 @@ def book_bus_view(request, bus_id):
 
     if request.method == 'POST':
         if seats_available > 0:
-            Booking.objects.create(
+            booking = Booking.objects.create(
                 user=request.user,
                 booking_type='bus',
                 bus=bus,
                 total_price=bus.price,
-                status='confirmed'
+                status='pending'
             )
-            return redirect('my_bookings')
+            return redirect('payments:process_payment', booking_id=booking.id)
         else:
             return render(request, 'bookings/confirm_booking.html', {
                 'item': bus, 'item_type': 'Bus', 'sold_out': True
