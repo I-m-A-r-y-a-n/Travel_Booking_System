@@ -1,8 +1,68 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f6fa; padding: 40px; color: #2f3542; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header a { color: #e84118; text-decoration: none; font-weight: bold; }
+        h2 { color: #1e3799; margin-top: 30px; }
+        .booking-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .booking-card { background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .status-confirmed { color: #2ed573; font-weight: bold; }
+        .status-cancelled { color: #e84118; font-weight: bold; }
+        .status-pending { color: #ffa502; font-weight: bold; }
+        .empty { color: #57606f; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome, {{ request.user }}</h1>
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
 
-{% block title %}Dashboard{% endblock %}
+    <h2>My Hotel Bookings</h2>
+    {% if hotel_bookings %}
+        <ul class="booking-list">
+        {% for booking in hotel_bookings %}
+            <li class="booking-card">
+                <strong>{{ booking.hotel.name }}</strong>
+                <p>{{ booking.hotel.location }}</p>
+                <p>Amount: ₹{{ booking.total_price }}</p>
+                <p class="status-{{ booking.status }}">{{ booking.get_status_display }}</p>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty">No hotel bookings yet.</p>
+    {% endif %}
 
-{% block content %}
-<h2>You are logged in!</h2>
-<a href="{% url 'logout' %}">Logout</a>
-{% endblock %}
+    <h2>My Flight Bookings</h2>
+    {% if flight_bookings %}
+        <ul class="booking-list">
+        {% for booking in flight_bookings %}
+            <li class="booking-card">
+                <p>Amount: ₹{{ booking.total_price }}</p>
+                <p class="status-{{ booking.status }}">{{ booking.get_status_display }}</p>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty">No flight bookings yet.</p>
+    {% endif %}
+
+    <h2>My Bus Bookings</h2>
+    {% if bus_bookings %}
+        <ul class="booking-list">
+        {% for booking in bus_bookings %}
+            <li class="booking-card">
+                <p>Amount: ₹{{ booking.total_price }}</p>
+                <p class="status-{{ booking.status }}">{{ booking.get_status_display }}</p>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty">No bus bookings yet.</p>
+    {% endif %}
+</body>
+</html>

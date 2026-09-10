@@ -1,5 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 from .models import Room ,Hotel
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from bookings.models import Booking
 
 def search_hotels(request):
     destination = request.GET.get('destination', '')
@@ -33,3 +36,23 @@ def hotel_detail(request, hotel_id):
         'rooms': rooms,
     }
     return render(request, 'hotels/hotel_detail.html', context)
+
+@login_required
+def book_room(request, room_id):
+    room = get_object_or_404(Room, id=room_id)
+
+    if room.available_rooms < 1:
+        return render(request, 'hotels/booking_failed.html', {'room': room})
+
+    booking = Booking.objects.create(
+        user=request.user,
+        booking_type='hotel',
+        hotel=room.hotel,
+        total_price=room.price_per_night,
+        status='pending',
+    )
+
+    room.available_rooms -= 1
+    room.save()
+
+    return redirect('payments:choose_payment_method', booking_id=booking.id)
