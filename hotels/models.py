@@ -26,4 +26,4 @@ class Room(models.Model):
     available_rooms = models.PositiveIntegerField()
 
     def __str__(self):
-        return f"{self.hotel.name} - {self.room_type} ({self.available_rooms} available)"
+        return f"{self.hotel.name} - {self.room_type} (capacity: {self.total_rooms})"

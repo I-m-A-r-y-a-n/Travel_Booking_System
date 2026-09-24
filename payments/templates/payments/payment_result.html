@@ -2,13 +2,50 @@
 <html>
 <head>
     <title>Payment Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f6fa;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+        .result-card {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 32px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .status-success {
+            color: #2ed573;
+        }
+        .status-failed {
+            color: #e84118;
+        }
+        .result-card p {
+            text-align: left;
+            margin: 10px 0;
+            color: #2f3542;
+        }
+        .result-card p strong {
+            color: #57606f;
+        }
+    </style>
 </head>
 <body>
-    <h1>Payment {{ payment.status }}</h1>
-    <p>Payment ID: {{ payment.id }}</p>
-    <p>Booking ID: {{ booking.id }}</p>
-    <p>Amount: {{ payment.amount }}</p>
-    <p>Method: {{ payment.get_payment_method_display }}</p>
-    <p>Booking Status: {{ booking.get_status_display }}</p>
+    <div class="result-card">
+        <h1 class="{% if payment.status == 'SUCCESS' %}status-success{% else %}status-failed{% endif %}">
+            Payment {{ payment.status }}
+        </h1>
+        <p><strong>Payment ID:</strong> {{ payment.id }}</p>
+        <p><strong>Booking ID:</strong> {{ booking.id }}</p>
+        <p><strong>Amount:</strong> ₹{{ payment.amount }}</p>
+        <p><strong>Method:</strong> {{ payment.get_payment_method_display }}</p>
+        <p><strong>Booking Status:</strong> {{ booking.get_status_display }}</p>
+    </div>
 </body>
 </html>

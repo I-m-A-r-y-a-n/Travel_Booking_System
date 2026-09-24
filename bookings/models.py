@@ -3,6 +3,7 @@ from django.conf import settings
 from flights.models import Flight
 from buses.models import Bus
 from hotels.models import Hotel
+from hotels.models import Room
 
 class Booking(models.Model):
     BOOKING_TYPE_CHOICES = [
@@ -23,6 +24,9 @@ class Booking(models.Model):
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE, null=True, blank=True)
     bus = models.ForeignKey(Bus, on_delete=models.CASCADE, null=True, blank=True)
     hotel = models.ForeignKey(Hotel, on_delete=models.CASCADE, null=True, blank=True)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
+    check_in_date = models.DateField(null=True, blank=True)
+    check_out_date = models.DateField(null=True, blank=True)
 
     booking_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')

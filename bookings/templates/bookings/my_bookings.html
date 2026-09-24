@@ -7,13 +7,21 @@
 {% if bookings %}
     <ul class="result-list">
     {% for booking in bookings %}
-        <li>
+                <li>
             <span>
                 #{{ booking.id }} — {{ booking.booking_type }} —
                 Status: {{ booking.status }} —
                 ₹{{ booking.total_price }} —
                 {{ booking.booking_date }}
             </span>
+            {% if booking.booking_type == 'hotel' %}
+                <p>
+                    🏨 {{ booking.hotel.name }} ({{ booking.hotel.location }}) —
+                    {{ booking.room.get_room_type_display }} —
+                    Check-in: {{ booking.check_in_date }} —
+                    Check-out: {{ booking.check_out_date }}
+                </p>
+            {% endif %}
             {% if booking.status == 'confirmed' %}
                 <a href="{% url 'cancel_booking' booking.id %}">Cancel</a>
             {% endif %}
