@@ -1,21 +1,19 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Confirm Booking</title>
-</head>
-<body>
-    <h2>Confirm Your {{ item_type }} Booking</h2>
-    <p>{{ item }}</p>
-    <p>Price: ₹{{ item.price }}</p>
+{% extends 'base.html' %}
 
-    {% if sold_out %}
-        <p style="color:red;">Sorry, this is fully booked.</p>
-    {% else %}
-        <p>Seats available: {{ seats_available }}</p>
-        <form method="post">
-            {% csrf_token %}
-            <button type="submit">Confirm Booking</button>
-        </form>
-    {% endif %}
-</body>
-</html>
+{% block title %}Confirm Booking{% endblock %}
+
+{% block content %}
+<h2>Confirm Your {{ item_type }} Booking</h2>
+<p>{{ item }}</p>
+<p>Price: ₹{{ item.price }}</p>
+
+{% if sold_out %}
+    <p class="error-text">Sorry, this is fully booked.</p>
+{% else %}
+    <p>Seats available: {{ seats_available }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit">Confirm Booking</button>
+    </form>
+{% endif %}
+{% endblock %}

@@ -55,15 +55,36 @@
 </head>
 <body>
     <h1>Search Results</h1>
-    <div class="search-info">
-        Destination: <strong>{{ destination }}</strong> | Guests: <strong>{{ guests }}</strong>
+
+<form method="GET" action="{% url 'hotels:search_hotels' %}" style="background:#fff; padding:16px; border-radius:8px; margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+    <div>
+        <label>Destination</label><br>
+        <input type="text" name="destination" value="{{ destination }}">
     </div>
+    <div>
+        <label>Guests</label><br>
+        <input type="number" name="guests" value="{{ guests }}" min="1">
+    </div>
+    <div>
+        <label>Check-in</label><br>
+        <input type="date" name="check_in" value="{{ check_in }}">
+    </div>
+    <div>
+        <label>Check-out</label><br>
+        <input type="date" name="check_out" value="{{ check_out }}">
+    </div>
+    <button type="submit" style="padding:8px 16px; background:#1e3799; color:white; border:none; border-radius:6px;">Search</button>
+</form>
+
+<div class="search-info">
+    Destination: <strong>{{ destination }}</strong> | Guests: <strong>{{ guests }}</strong>
+</div>
 
     {% if rooms %}
         <ul class="room-list">
         {% for room in rooms %}
             <li class="room-card">
-                <a href="{% url 'hotels:hotel_detail' room.hotel.id %}">{{ room.hotel.name }}</a>
+                <a href="{% url 'hotels:hotel_detail' room.hotel.id %}?check_in={{ check_in }}&check_out={{ check_out }}">{{ room.hotel.name }}</a>
                 <p>{{ room.hotel.location }}</p>
                 <p>Room Type: {{ room.get_room_type_display }}</p>
                 <p>Price per night: ₹{{ room.price_per_night }}</p>
