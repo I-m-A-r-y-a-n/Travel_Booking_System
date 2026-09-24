@@ -13,8 +13,8 @@ def flight_search_view(request):
         date = form.cleaned_data['date']
 
         flights = Flight.objects.filter(
-            departure_city__iexact=departure_city,
-            destination_city__iexact=destination_city,
+            departure_city__icontains=departure_city,
+            destination_city__icontains=destination_city,
             departure_time__date=date
         )
 

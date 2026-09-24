@@ -13,8 +13,8 @@ def bus_search_view(request):
         date = form.cleaned_data['date']
 
         buses = Bus.objects.filter(
-            starting_location__iexact=starting_location,
-            destination__iexact=destination,
+            starting_location__icontains=starting_location,
+            destination__icontains=destination,
             departure_time__date=date
         )
 
