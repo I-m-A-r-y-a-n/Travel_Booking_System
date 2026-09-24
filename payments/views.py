@@ -1,18 +1,28 @@
-from django.shortcuts import render
-
-# Create your views here.
 import random
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
 from bookings.models import Booking
 from .models import Payment
 
+
+@login_required
+def choose_payment_method(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id)
+    context = {'booking': booking}
+    return render(request, 'payments/choose_method.html', context)
+
+
+@login_required
 def process_payment(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id)
+
+    if request.method != 'POST':
+        return redirect('payments:choose_payment_method', booking_id=booking.id)
 
     # MOCK PAYMENT LOGIC (no real gateway).
     # Simulates a payment attempt with a random outcome, since the SRS
     # explicitly excludes real payment gateway integration.
-    method = request.GET.get('method', 'CARD')
+    method = request.POST.get('method', 'CARD')
     is_success = random.choice([True, False])
 
     payment = Payment.objects.create(
