@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}My Bookings{% endblock %}
 
@@ -9,19 +9,18 @@
     {% for booking in bookings %}
         <li>
             <span>
-                #{{ booking.id }} — {{ booking.booking_type }} —
-                Status: {{ booking.status }} —
-                ₹{{ booking.total_price }} —
+                #{{ booking.id }} - {{ booking.booking_type }} -
+                Status: {{ booking.status }} -
+                Rs.{{ booking.total_price }} -
                 {{ booking.booking_date }}
+                {% if booking.booking_type == 'flight' and booking.flight %}
+                    <br>{{ booking.flight.airline_name }} ({{ booking.flight.flight_number }}): {{ booking.flight.departure_city }} to {{ booking.flight.destination_city }}
+                {% elif booking.booking_type == 'bus' and booking.bus %}
+                    <br>{{ booking.bus.operator_name }} ({{ booking.bus.bus_number }}): {{ booking.bus.starting_location }} to {{ booking.bus.destination }}
+                {% elif booking.booking_type == 'hotel' and booking.hotel %}
+                    <br>{{ booking.hotel.name }} ({{ booking.hotel.location }}) - {{ booking.room.get_room_type_display }} - Check-in: {{ booking.check_in_date }} - Check-out: {{ booking.check_out_date }}
+                {% endif %}
             </span>
-            {% if booking.booking_type == 'hotel' %}
-                <p>
-                    🏨 {{ booking.hotel.name }} ({{ booking.hotel.location }}) —
-                    {{ booking.room.get_room_type_display }} —
-                    Check-in: {{ booking.check_in_date }} —
-                    Check-out: {{ booking.check_out_date }}
-                </p>
-            {% endif %}
             {% if booking.status == 'confirmed' %}
                 <a href="{% url 'cancel_booking' booking.id %}">Cancel</a>
             {% endif %}
