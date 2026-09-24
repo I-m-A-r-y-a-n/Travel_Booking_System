@@ -7,7 +7,7 @@
 {% if bookings %}
     <ul class="result-list">
     {% for booking in bookings %}
-                <li>
+        <li>
             <span>
                 #{{ booking.id }} — {{ booking.booking_type }} —
                 Status: {{ booking.status }} —
@@ -24,6 +24,9 @@
             {% endif %}
             {% if booking.status == 'confirmed' %}
                 <a href="{% url 'cancel_booking' booking.id %}">Cancel</a>
+            {% endif %}
+            {% if booking.status == 'pending' %}
+                <a href="{% url 'payments:choose_payment_method' booking.id %}">Pay Now</a>
             {% endif %}
         </li>
     {% endfor %}
