@@ -3,7 +3,7 @@ from .models import Room ,Hotel
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from bookings.models import Booking
-from datetime import datetime
+from datetime import date, datetime
 
 def search_hotels(request):
     destination = request.GET.get('destination', '')
@@ -45,6 +45,8 @@ def search_hotels(request):
         'guests': guests,
         'check_in': check_in,
         'check_out': check_out,
+        'today': date.today(),
+
     }
     return render(request, 'hotels/search_results.html', context)
 
@@ -82,6 +84,11 @@ def book_room(request, room_id):
         return render(request, 'hotels/booking_failed.html', {
             'room': room,
             'reason': 'Check-out date must be after check-in date.'
+        })
+    if check_in_date < date.today():
+        return render(request, 'hotels/booking_failed.html', {
+            'room': room,
+            'reason': 'Check-in date cannot be in the past.'
         })
 
     overlapping = Booking.objects.filter(
