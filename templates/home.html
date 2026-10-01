@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Wayfare — Travel Booking{% endblock %}
+
+{% block content %}
+<h1>Go anywhere. Book it here.</h1>
+<p>Search flights, buses, and hotels, book in a few clicks, manage everything in one place.</p>
+<p>
+    <a href="{% url 'flight_search' %}">Search Flights</a> ·
+    <a href="{% url 'bus_search' %}">Search Buses</a> ·
+    <a href="{% url 'hotels:search_hotels' %}">Search Hotels</a>
+</p>
+{% endblock %}

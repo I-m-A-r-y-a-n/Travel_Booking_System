@@ -7,21 +7,26 @@ from .models import Payment
 
 @login_required
 def choose_payment_method(request, booking_id):
-    booking = get_object_or_404(Booking, id=booking_id)
+    booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+
+    if booking.status != 'pending':
+        return redirect('my_bookings')
+
     context = {'booking': booking}
     return render(request, 'payments/choose_method.html', context)
 
 
 @login_required
 def process_payment(request, booking_id):
-    booking = get_object_or_404(Booking, id=booking_id)
+    booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+
+    if booking.status != 'pending':
+        return redirect('my_bookings')
 
     if request.method != 'POST':
         return redirect('payments:choose_payment_method', booking_id=booking.id)
 
     # MOCK PAYMENT LOGIC (no real gateway).
-    # Simulates a payment attempt with a random outcome, since the SRS
-    # explicitly excludes real payment gateway integration.
     method = request.POST.get('method', 'CARD')
     is_success = random.choice([True, False])
 

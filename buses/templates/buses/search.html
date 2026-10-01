@@ -19,7 +19,7 @@
                 {{ bus.starting_location }} → {{ bus.destination }} —
                 {{ bus.departure_time }} — ₹{{ bus.price }}
             </span>
-            <a href="{% url 'book_bus' bus.id %}">Book</a>
+            <a href="{% url 'book_bus' bus.id %}?passengers={{ request.GET.passengers|default:1 }}">Book</a>
         </li>
     {% endfor %}
     </ul>

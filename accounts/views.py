@@ -54,3 +54,6 @@ def dashboard_placeholder(request):
         'bus_bookings': bus_bookings,
     }
     return render(request, 'accounts/dashboard_placeholder.html', context)
+
+def home_view(request):
+    return render(request, 'home.html')

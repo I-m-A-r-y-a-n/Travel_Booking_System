@@ -5,14 +5,18 @@
 {% block content %}
 <h2>Confirm Your {{ item_type }} Booking</h2>
 <p>{{ item }}</p>
-<p>Price: ₹{{ item.price }}</p>
+<p>Price per seat: Rs.{{ item.price }}</p>
 
 {% if sold_out %}
-    <p class="error-text">Sorry, this is fully booked.</p>
+    <p class="error-text">Only {{ seats_available }} seat(s) left — not enough for {{ passengers }} passenger(s).</p>
+    <a href="javascript:history.back()">Go back</a>
 {% else %}
+    <p>Passengers: {{ passengers }}</p>
     <p>Seats available: {{ seats_available }}</p>
+    <p><strong>Total price: Rs.{{ total_price }}</strong></p>
     <form method="post">
         {% csrf_token %}
+        <input type="hidden" name="passengers" value="{{ passengers }}">
         <button type="submit">Confirm Booking</button>
     </form>
 {% endif %}
