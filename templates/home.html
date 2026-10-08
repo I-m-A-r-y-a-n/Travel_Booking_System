@@ -1,13 +1,79 @@
 {% extends 'base.html' %}
-
-{% block title %}Wayfare — Travel Booking{% endblock %}
+{% block title %}Wayfare | Travel Booking{% endblock %}
+{% block main_class %}full{% endblock %}
 
 {% block content %}
-<h1>Go anywhere. Book it here.</h1>
-<p>Search flights, buses, and hotels, book in a few clicks, manage everything in one place.</p>
-<p>
-    <a href="{% url 'flight_search' %}">Search Flights</a> ·
-    <a href="{% url 'bus_search' %}">Search Buses</a> ·
-    <a href="{% url 'hotels:search_hotels' %}">Search Hotels</a>
-</p>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="chip">Flights · Buses · Hotels</span>
+      <h1>Travel smart &amp; <span class="grad-text">book in minutes</span></h1>
+      <p>Search, compare and book your whole trip in one place, with live seat availability and simple checkout.</p>
+
+      <div class="search-card"><div class="tabs">
+        <input type="radio" name="tab" id="tab-f" checked><label for="tab-f">Flights</label>
+        <input type="radio" name="tab" id="tab-b"><label for="tab-b">Buses</label>
+        <input type="radio" name="tab" id="tab-h"><label for="tab-h">Hotels</label>
+
+        <div class="panel p-f"><form class="srow" action="{% url 'flight_search' %}" method="get">
+          <div><label>From</label><input name="departure_city" placeholder="Bangalore" required></div>
+          <div><label>To</label><input name="destination_city" placeholder="Delhi" required></div>
+          <div><label>Date</label><input type="date" name="date" required></div>
+          <div><label>Passengers</label><input type="number" name="passengers" value="1" min="1" required></div>
+          <button type="submit">Search</button>
+        </form></div>
+
+        <div class="panel p-b"><form class="srow" action="{% url 'bus_search' %}" method="get">
+          <div><label>From</label><input name="starting_location" placeholder="Chennai" required></div>
+          <div><label>To</label><input name="destination" placeholder="Bangalore" required></div>
+          <div><label>Date</label><input type="date" name="date" required></div>
+          <div><label>Passengers</label><input type="number" name="passengers" value="1" min="1" required></div>
+          <button type="submit">Search</button>
+        </form></div>
+
+        <div class="panel p-h"><form class="srow" action="{% url 'hotels:search_hotels' %}" method="get">
+          <div><label>Destination</label><input name="destination" placeholder="Goa" required></div>
+          <div><label>Check-in</label><input type="date" name="check_in" required></div>
+          <div><label>Check-out</label><input type="date" name="check_out" required></div>
+          <div><label>Guests</label><input type="number" name="guests" value="1" min="1" required></div>
+          <button type="submit">Search</button>
+        </form></div>
+      </div></div>
+    </div>
+
+    <div class="hero-photo">
+      <svg viewBox="0 0 400 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <g class="cloud" fill="#fff" opacity=".18"><ellipse cx="90" cy="90" rx="70" ry="22"/><ellipse cx="320" cy="330" rx="80" ry="24"/></g>
+        <path class="route" d="M40 380 C120 300 140 160 330 90" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+        <g class="plane" transform="translate(300 60)"><path d="M0 28 L78 -6 L36 52 Z" fill="#fff"/><path d="M36 52 L44 22 L78 -6 Z" fill="#DDD7F8"/></g>
+        <circle cx="40" cy="380" r="8" fill="#fff"/><circle cx="40" cy="380" r="16" fill="none" stroke="#fff" opacity=".5"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="wrap"><div class="stats">
+    <div class="stat"><b>3</b><span>ways to travel</span></div>
+    <div class="stat"><b>10+</b><span>cities connected</span></div>
+    <div class="stat"><b>Live</b><span>seat availability</span></div>
+    <div class="stat"><b>1-click</b><span>booking history</span></div>
+  </div></div>
+</section>
+
+<section class="section"><div class="wrap">
+  <div class="section-head"><h2>Everything for your trip</h2><p>Pick how you want to go, we handle the booking.</p></div>
+  <div class="grid3">
+    <a class="svc" href="{% url 'flight_search' %}"><div class="svc-img img-flights"></div><h3>Flights</h3><p>Search by city and date, book several passengers at once.</p><span>Search flights &rarr;</span></a>
+    <a class="svc" href="{% url 'bus_search' %}"><div class="svc-img img-buses"></div><h3>Buses</h3><p>Overnight and intercity routes with live seat counts.</p><span>Search buses &rarr;</span></a>
+    <a class="svc" href="{% url 'hotels:search_hotels' %}"><div class="svc-img img-hotels"></div><h3>Hotels</h3><p>Rooms for your dates, with checkout in a few clicks.</p><span>Search hotels &rarr;</span></a>
+  </div>
+</div></section>
+
+<section class="section cream"><div class="wrap">
+  <div class="section-head"><h2>How it works</h2></div>
+  <div class="grid3">
+    <div class="step"><i>1</i><h3>Search</h3><p>Enter where and when. Partial city names work.</p></div>
+    <div class="step"><i>2</i><h3>Book</h3><p>Choose passengers, review the total, confirm.</p></div>
+    <div class="step"><i>3</i><h3>Pay &amp; manage</h3><p>Pay, then view or cancel anytime in My Bookings.</p></div>
+  </div>
+</div></section>
 {% endblock %}

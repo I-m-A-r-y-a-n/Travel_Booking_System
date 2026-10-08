@@ -28,7 +28,7 @@ def process_payment(request, booking_id):
 
     # MOCK PAYMENT LOGIC (no real gateway).
     method = request.POST.get('method', 'CARD')
-    is_success = random.choice([True, False])
+    is_success = random.random() < 0.90  # 85% success rate
 
     payment = Payment.objects.create(
         booking=booking,

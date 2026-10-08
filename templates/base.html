@@ -4,32 +4,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Travel Booking{% endblock %}</title>
+    <title>{% block title %}Wayfare{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
+    {% with page=request.resolver_match.url_name %}
     <header class="site-header">
-        <a href="/" class="site-logo">Wayfare</a>
+        <a href="{% url 'home' %}" class="site-logo">Wayfare</a>
+        <input type="checkbox" id="nav-toggle" class="nav-toggle">
+        <label for="nav-toggle" class="burger"><span></span></label>
         <nav class="site-nav">
-                        <a href="{% url 'flight_search' %}">Flights</a>
-            <a href="{% url 'bus_search' %}">Buses</a>
-            <a href="{% url 'hotels:search_hotels' %}">Hotels</a>
+            <a href="{% url 'flight_search' %}" class="{% if page == 'flight_search' %}active{% endif %}">Flights</a>
+            <a href="{% url 'bus_search' %}" class="{% if page == 'bus_search' %}active{% endif %}">Buses</a>
+            <a href="{% url 'hotels:search_hotels' %}" class="{% if page == 'search_hotels' %}active{% endif %}">Hotels</a>
             {% if user.is_authenticated %}
-                <a href="{% url 'my_bookings' %}">My Bookings</a>
+                <a href="{% url 'my_bookings' %}" class="{% if page == 'my_bookings' %}active{% endif %}">My Bookings</a>
                 <a href="{% url 'logout' %}">Logout</a>
             {% else %}
-                <a href="{% url 'login' %}">Login</a>
-                <a href="{% url 'register' %}">Register</a>
+                <a href="{% url 'login' %}" class="{% if page == 'login' %}active{% endif %}">Login</a>
+                <a href="{% url 'register' %}" class="cta">Register</a>
             {% endif %}
         </nav>
     </header>
+    {% endwith %}
 
-    <main class="site-main">
-        {% block content %}
-        {% endblock %}
+    {% if messages %}
+    <div class="toasts">
+        {% for message in messages %}<div class="toast {{ message.tags }}">{{ message }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="site-main {% block main_class %}{% endblock %}">
+        {% block content %}{% endblock %}
     </main>
+
+    <footer class="site-footer">
+        <div class="wrap">
+            <div class="foot-grid">
+                <div><h4>Wayfare</h4><p>Flights, buses and hotels, booked in one place.</p></div>
+                <div><h4>Book</h4><a href="{% url 'flight_search' %}">Flights</a><a href="{% url 'bus_search' %}">Buses</a><a href="{% url 'hotels:search_hotels' %}">Hotels</a></div>
+                <div><h4>Account</h4><a href="{% url 'login' %}">Login</a><a href="{% url 'register' %}">Register</a><a href="{% url 'my_bookings' %}">My Bookings</a></div>
+                <div><h4>Project</h4><a href="{% url 'home' %}">Home</a></div>
+            </div>
+            <div class="copy">&copy; 2026 Wayfare. Academic project: payments are simulated.</div>
+        </div>
+    </footer>
 </body>
 </html>
