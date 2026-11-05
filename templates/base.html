@@ -22,7 +22,14 @@
             <a href="{% url 'hotels:search_hotels' %}" class="{% if page == 'search_hotels' %}active{% endif %}">Hotels</a>
             {% if user.is_authenticated %}
                 <a href="{% url 'my_bookings' %}" class="{% if page == 'my_bookings' %}active{% endif %}">My Bookings</a>
+                <a href="{% url 'reviews:my_reviews' %}">My Reviews</a>
                 <a href="{% url 'logout' %}">Logout</a>
+                <a href="{% url 'notifications:list' %}" title="Notifications" style="position:relative; font-size:1.25em;">
+    &#128276;
+    {% if unread_notification_count %}
+        <span style="position:absolute; top:-8px; right:-10px; background:#e84118; color:#fff; font-size:11px; font-weight:bold; border-radius:10px; padding:1px 6px; line-height:1.4;">{{ unread_notification_count }}</span>
+    {% endif %}
+</a>
             {% else %}
                 <a href="{% url 'login' %}" class="{% if page == 'login' %}active{% endif %}">Login</a>
                 <a href="{% url 'register' %}" class="cta">Register</a>

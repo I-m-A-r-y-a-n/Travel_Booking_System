@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Write a Review{% endblock %}
+
+{% block content %}
+<h2>Write a Review</h2>
+
+{% if not_allowed %}
+    <p>You can only review bookings that are confirmed.</p>
+    <p><a href="{% url 'my_bookings' %}">Back to My Bookings</a></p>
+{% elif already_reviewed %}
+    <p>You have already reviewed this booking.</p>
+    <p><a href="{% url 'reviews:my_reviews' %}">See my reviews</a></p>
+{% else %}
+    <p>
+        Booking #{{ booking.id }} —
+        {% if booking.hotel %}{{ booking.hotel.name }}
+        {% elif booking.flight %}{{ booking.flight }}
+        {% elif booking.bus %}{{ booking.bus }}
+        {% endif %}
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit Review</button>
+    </form>
+{% endif %}
+{% endblock %}

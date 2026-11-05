@@ -20,6 +20,7 @@
                 {{ flight.departure_time }} — ₹{{ flight.price }}
             </span>
             <a href="{% url 'book_flight' flight.id %}?passengers={{ request.GET.passengers|default:1 }}">Book</a>
+            <a href="{% url 'reviews:item_reviews' 'flight' flight.id %}">Reviews</a>
         </li>
     {% endfor %}
     </ul>

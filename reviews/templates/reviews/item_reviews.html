@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Reviews{% endblock %}
+
+{% block content %}
+<h2>Reviews for {{ item }}</h2>
+
+{% if average %}
+    <p>Average rating: <strong>{{ average }} / 5</strong> ({{ reviews|length }} review{{ reviews|length|pluralize }})</p>
+{% endif %}
+
+{% if reviews %}
+    <ul class="result-list">
+    {% for review in reviews %}
+        <li>
+            <span>
+                <strong>{{ review.user.name|default:"Traveler" }}</strong>
+                — {{ review.rating }}/5 — {{ review.created_at|date:"d M Y" }}
+                <br>{{ review.comment }}
+            </span>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No reviews yet.</p>
+{% endif %}
+{% endblock %}

@@ -12,6 +12,13 @@ class Review(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    booking = models.OneToOneField(
+        'bookings.Booking',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='review',
+    )
     rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)

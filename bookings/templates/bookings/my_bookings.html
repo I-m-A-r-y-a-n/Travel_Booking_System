@@ -21,8 +21,13 @@
                     <br>{{ booking.hotel.name }} ({{ booking.hotel.location }}) - {{ booking.room.get_room_type_display }} - Check-in: {{ booking.check_in_date }} - Check-out: {{ booking.check_out_date }}
                 {% endif %}
             </span>
-            {% if booking.status == 'confirmed' %}
+                       {% if booking.status == 'confirmed' %}
                 <a href="{% url 'cancel_booking' booking.id %}">Cancel</a>
+                {% if booking.review %}
+                    <a href="{% url 'reviews:my_reviews' %}">Reviewed</a>
+                {% else %}
+                    <a href="{% url 'reviews:write_review' booking.id %}">Write Review</a>
+                {% endif %}
             {% endif %}
             {% if booking.status == 'pending' %}
                 <a href="{% url 'payments:choose_payment_method' booking.id %}">Pay Now</a>
