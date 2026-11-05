@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}My Reviews{% endblock %}
+
+{% block content %}
+<h2>My Reviews</h2>
+{% if reviews %}
+    <ul class="result-list">
+    {% for review in reviews %}
+        <li>
+            <span>
+                <strong>
+                    {% if review.booking.hotel %}{{ review.booking.hotel.name }}
+                    {% elif review.booking.flight %}{{ review.booking.flight }}
+                    {% elif review.booking.bus %}{{ review.booking.bus }}
+                    {% else %}Review{% endif %}
+                </strong>
+                — {{ review.rating }}/5 — {{ review.created_at|date:"d M Y" }}
+                <br>{{ review.comment }}
+            </span>
+            <a href="{% url 'reviews:edit_review' review.id %}">Edit</a>
+            <form method="post"
+                  action="{% url 'reviews:delete_review' review.id %}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete this review? This cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit">Delete</button>
+            </form>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>You have not written any reviews yet. Open <a href="{% url 'my_bookings' %}">My Bookings</a> and use "Write Review" on a confirmed booking.</p>
+{% endif %}
+{% endblock %}

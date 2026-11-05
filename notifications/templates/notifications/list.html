@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<h2>Notifications</h2>
+
+{% if notifications %}
+    <form method="post" action="{% url 'notifications:mark_all_read' %}">
+        {% csrf_token %}
+        <button type="submit">Clear all</button>
+    </form>
+
+    <ul class="result-list">
+    {% for n in notifications %}
+        <li>
+            <span>
+                {{ n.get_notification_type_display }} —
+                {{ n.created_at|date:"d M Y, H:i" }}
+                <br>{{ n.message }}
+            </span>
+            <form method="post" action="{% url 'notifications:mark_read' n.id %}">
+                {% csrf_token %}
+                <button type="submit">Dismiss</button>
+            </form>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>You're all caught up. No new notifications.</p>
+{% endif %}
+{% endblock %}

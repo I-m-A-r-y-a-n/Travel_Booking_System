@@ -6,6 +6,7 @@
 <h2>{{ hotel.name }}</h2>
 <p>📍 {{ hotel.location }} | ⭐ {{ hotel.rating }}</p>
 <p>{{ hotel.description }}</p>
+<p><a href="{% url 'reviews:item_reviews' 'hotel' hotel.id %}">See reviews</a></p>
 
 <h3>Available Room Types</h3>
 {% if rooms %}
