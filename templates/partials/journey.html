@@ -1,0 +1,19 @@
+<div class="journey">
+    <div class="jpoint">
+        <small>Departure</small>
+        <b>{{ item.origin }}</b>
+        <span class="t">{{ item.departure_time|time:"H:i" }}</span>
+        <span class="d">{{ item.departure_time|date:"D, d M Y" }}</span>
+    </div>
+    <div class="jmid">
+        <b>{{ item.duration }}</b>
+        <div class="line"><svg class="i {% if kind == 'flight' %}plane{% endif %}"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg></div>
+        <span>{{ item.tag }}</span>
+    </div>
+    <div class="jpoint end">
+        <small>Arrival</small>
+        <b>{{ item.dest }}</b>
+        <span class="t">{{ item.arrival_time|time:"H:i" }}{% if item.day_offset %} <span class="badge warn">+{{ item.day_offset }} day</span>{% endif %}</span>
+        <span class="d">{{ item.arrival_time|date:"D, d M Y" }}</span>
+    </div>
+</div>

@@ -1,27 +1,119 @@
 {% extends 'base.html' %}
 
 {% block title %}{{ hotel.name }}{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>{{ hotel.name }}</h2>
-<p>📍 {{ hotel.location }} | ⭐ {{ hotel.rating }}</p>
-<p>{{ hotel.description }}</p>
+<a class="back-link" href="{% url 'hotels:search_hotels' %}{% if stay_query %}?{{ stay_query }}{% endif %}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to hotels</a>
 
-<h3>Available Room Types</h3>
-{% if rooms %}
-    <ul class="result-list">
-    {% for room in rooms %}
-        <li>
-            <span>
-                {{ room.get_room_type_display }} —
-                ₹{{ room.price_per_night }}/night —
-                Capacity: {{ room.capacity }} guests
-            </span>
-            <a href="{% url 'hotels:book_room' room.id %}?check_in={{ check_in }}&check_out={{ check_out }}">Book Now</a>
-        </li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No rooms listed for this hotel yet.</p>
-{% endif %}
+<div class="detail-title">
+    <h1>{{ hotel.name }}</h1>
+    {% if hotel.rating %}<span class="rating"><svg class="i"><use href="#i-star"/></svg> {{ hotel.rating }}</span>{% endif %}
+</div>
+<p class="loc"><svg class="i"><use href="#i-pin"/></svg> {{ hotel.location }}</p>
+
+<div class="gallery single">
+    <div class="ph ph-{{ hotel.placeholder_variant }}">{% if hotel.image_url %}<img src="{{ hotel.image_url }}" alt="{{ hotel.name }}" onerror="this.remove()">{% endif %}</div>
+</div>
+
+<div class="detail-grid">
+    <div>
+        <section class="box">
+            <h3><svg class="i"><use href="#i-info"/></svg> About this hotel</h3>
+            {% if hotel.description %}<p class="mt0">{{ hotel.description }}</p>{% else %}<p class="mt0 muted">No description has been added yet.</p>{% endif %}
+        </section>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-check"/></svg> Facilities</h3>
+            {% if hotel.amenity_items %}
+                <div class="amenities">
+                    {% for a in hotel.amenity_items %}
+                        <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted mt0">No facilities listed for this hotel.</p>
+            {% endif %}
+        </section>
+
+        <section class="box" id="rooms">
+            <h3><svg class="i"><use href="#i-bed"/></svg> Choose your room</h3>
+            {% if error %}
+                <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ error }}</div></div>
+            {% elif not nights %}
+                <div class="alert info"><svg class="i"><use href="#i-calendar"/></svg><div>Pick your check-in and check-out dates in the box on the right to see availability and book.</div></div>
+            {% endif %}
+
+            {% for room in rooms %}
+                <div class="room">
+                    <div>
+                        <h4><svg class="i"><use href="#i-bed"/></svg> {{ room.get_room_type_display }} room</h4>
+                        <div class="meta">
+                            <span><svg class="i"><use href="#i-users"/></svg> Up to {{ room.capacity }} guest{{ room.capacity|pluralize }}</span>
+                            {% if nights and room.left and room.left <= 3 %}<span class="badge warn">Only {{ room.left }} left</span>{% endif %}
+                            {% if not room.fits_guests %}<span class="badge bad">Too small for {{ guests }} guests</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="room-price">
+                        <div class="price">&#8377;{{ room.price_per_night|floatformat:"0g" }}</div>
+                        <span class="price-note">per night{% if room.stay_total %} &middot; &#8377;{{ room.stay_total|floatformat:"0g" }} for {{ nights }} night{{ nights|pluralize }}{% endif %}</span>
+                        {% if room.can_book %}
+                            <a class="btn btn-sm" href="{% url 'hotels:book_room' room.id %}?{{ room.book_query }}">Book now</a>
+                        {% elif nights and room.left == 0 %}
+                            <span class="btn btn-sm btn-disabled">Sold out</span>
+                        {% elif not room.fits_guests %}
+                            <span class="btn btn-sm btn-disabled">Too small</span>
+                        {% else %}
+                            <a class="btn btn-sm btn-ghost" href="#stay-form">Select dates</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="muted mt0">No rooms are listed for this hotel yet.</p>
+            {% endfor %}
+        </section>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-star"/></svg> Guest reviews</h3>
+            {% if reviews.count %}
+                <div class="review-sum">
+                    <span class="big">{{ reviews.average }}</span>
+                    <span class="rating"><svg class="i"><use href="#i-star"/></svg> out of 5</span>
+                    <span class="muted">{{ reviews.count }} review{{ reviews.count|pluralize }}</span>
+                </div>
+                {% for review in reviews.latest %}
+                    <div class="review">
+                        <div class="who">{{ review.user.name|default:"Traveler" }} <span class="rating">{{ review.rating }} <svg class="i"><use href="#i-star"/></svg></span></div>
+                        <p>{{ review.comment }}</p>
+                    </div>
+                {% endfor %}
+                <p><a href="{% url 'reviews:item_reviews' 'hotel' hotel.id %}">See all reviews &rarr;</a></p>
+            {% else %}
+                <p class="muted mt0">No reviews yet. Stay here and be the first to review it.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <aside class="fare-box sticky" id="stay-form">
+        <h3>Your stay</h3>
+        <form method="get" action="{% url 'hotels:hotel_detail' hotel.id %}">
+            <div class="field">
+                <label for="check_in">Check-in</label>
+                <input type="date" id="check_in" name="check_in" value="{{ check_in }}" min="{{ today|date:'Y-m-d' }}" required data-stay-in>
+            </div>
+            <div class="field">
+                <label for="check_out">Check-out</label>
+                <input type="date" id="check_out" name="check_out" value="{{ check_out }}" min="{{ today|date:'Y-m-d' }}" required data-stay-out>
+            </div>
+            <div class="field">
+                <label for="guests">Guests</label>
+                <input type="number" id="guests" name="guests" value="{{ guests }}" min="1" placeholder="2">
+            </div>
+            <button type="submit" class="btn-lg btn-block">{% if nights %}Update dates{% else %}Check availability{% endif %}</button>
+        </form>
+        {% if nights %}
+            <p class="hint" style="margin-top:1rem"><svg class="i"><use href="#i-moon"/></svg> {{ nights }} night{{ nights|pluralize }} &middot; {{ check_in_date|date:"d M" }} to {{ check_out_date|date:"d M" }}</p>
+        {% endif %}
+    </aside>
+</div>
 {% endblock %}

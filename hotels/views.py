@@ -1,121 +1,198 @@
-from django.shortcuts import render, get_object_or_404
-from .models import Room ,Hotel
+from datetime import date
+from urllib.parse import urlencode
+
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect, render
+
 from bookings.models import Booking
-from datetime import date, datetime
+from reviews.utils import review_summary
+from travelbooking.helpers import parse_date, parse_int
+
+from .models import Hotel, Room
+
+
+def _stay_error(check_in, check_out):
+    """Message for an unusable date pair, or None when it is fine."""
+    if check_out <= check_in:
+        return 'Check-out date must be after check-in date.'
+    if check_in < date.today():
+        return 'Check-in date cannot be in the past.'
+    return None
+
+
+def _rooms_left(room, check_in, check_out):
+    """How many rooms of this type are still free for the given dates."""
+    overlapping = Booking.objects.filter(
+        room=room,
+        status__in=['pending', 'confirmed'],
+        check_in_date__lt=check_out,
+        check_out_date__gt=check_in,
+    ).count()
+    return room.total_rooms - overlapping
+
+
+def _stay_query(check_in, check_out, guests):
+    """'check_in=...&check_out=...&guests=...' built only from validated values."""
+    params = {}
+    if check_in:
+        params['check_in'] = check_in.isoformat()
+    if check_out:
+        params['check_out'] = check_out.isoformat()
+    if guests:
+        params['guests'] = guests
+    return urlencode(params)
+
 
 def search_hotels(request):
-    destination = request.GET.get('destination', '')
-    guests = request.GET.get('guests', '')
-    check_in = request.GET.get('check_in', '')
-    check_out = request.GET.get('check_out', '')
+    destination = request.GET.get('destination', '').strip()
+    check_in_date = parse_date(request.GET.get('check_in'))
+    check_out_date = parse_date(request.GET.get('check_out'))
+    guests = parse_int(request.GET.get('guests'), minimum=1)
+    sort = request.GET.get('sort', '')
 
-    rooms = Room.objects.all()
+    has_dates = bool(check_in_date and check_out_date)
+    error = _stay_error(check_in_date, check_out_date) if has_dates else None
+    nights = (check_out_date - check_in_date).days if has_dates and not error else None
 
-    if destination:
-        rooms = rooms.filter(hotel__location__icontains=destination)
+    hotels = []
+    if not error:
+        rooms = Room.objects.select_related('hotel').order_by('price_per_night')
+        if destination:
+            rooms = rooms.filter(hotel__location__icontains=destination)
+        if guests:
+            rooms = rooms.filter(capacity__gte=guests)
 
-    if guests:
-        rooms = rooms.filter(capacity__gte=int(guests))
-
-    available_rooms_list = []
-
-    if check_in and check_out:
-        check_in_date = datetime.strptime(check_in, '%Y-%m-%d').date()
-        check_out_date = datetime.strptime(check_out, '%Y-%m-%d').date()
-
+        grouped = {}
         for room in rooms:
-            overlapping = Booking.objects.filter(
-                room=room,
-                status__in=['pending', 'confirmed'],
-                check_in_date__lt=check_out_date,
-                check_out_date__gt=check_in_date,
-            ).count()
+            if has_dates and _rooms_left(room, check_in_date, check_out_date) <= 0:
+                continue
+            entry = grouped.setdefault(room.hotel_id, {'hotel': room.hotel, 'rooms': []})
+            entry['rooms'].append(room)
 
-            if overlapping < room.total_rooms:
-                available_rooms_list.append(room)
-    else:
-        # No dates provided yet - fall back to showing all matching rooms
-        available_rooms_list = list(rooms)
+        for entry in grouped.values():
+            entry['room_count'] = len(entry['rooms'])
+            entry['min_price'] = entry['rooms'][0].price_per_night  # rooms are ordered by price
+            entry['max_capacity'] = max(r.capacity for r in entry['rooms'])
+            if nights:
+                entry['stay_total'] = entry['min_price'] * nights
+            hotels.append(entry)
+
+        if sort == 'price':
+            hotels.sort(key=lambda h: h['min_price'])
+        elif sort == 'rating':
+            hotels.sort(key=lambda h: h['hotel'].rating, reverse=True)
+        else:
+            hotels.sort(key=lambda h: (-h['hotel'].rating, h['min_price']))
 
     context = {
-        'rooms': available_rooms_list,
+        'hotels': hotels,
+        'searched': bool(request.GET),
+        'error': error,
         'destination': destination,
-        'guests': guests,
-        'check_in': check_in,
-        'check_out': check_out,
+        'guests': guests or '',
+        'check_in': check_in_date.isoformat() if check_in_date else '',
+        'check_out': check_out_date.isoformat() if check_out_date else '',
+        'nights': nights,
+        'sort': sort,
+        'stay_query': _stay_query(check_in_date, check_out_date, guests),
+        'locations': sorted(Hotel.objects.values_list('location', flat=True).distinct()),
         'today': date.today(),
-
     }
     return render(request, 'hotels/search_results.html', context)
 
+
 def hotel_detail(request, hotel_id):
     hotel = get_object_or_404(Hotel, id=hotel_id)
-    rooms = hotel.rooms.all()
-    check_in = request.GET.get('check_in', '')
-    check_out = request.GET.get('check_out', '')
+    check_in_date = parse_date(request.GET.get('check_in'))
+    check_out_date = parse_date(request.GET.get('check_out'))
+    guests = parse_int(request.GET.get('guests'), minimum=1)
+
+    has_dates = bool(check_in_date and check_out_date)
+    error = _stay_error(check_in_date, check_out_date) if has_dates else None
+    nights = (check_out_date - check_in_date).days if has_dates and not error else None
+
+    rooms = list(hotel.rooms.order_by('price_per_night'))
+    for room in rooms:
+        room.fits_guests = guests is None or room.capacity >= guests
+        room.left = _rooms_left(room, check_in_date, check_out_date) if nights else None
+        room.stay_total = room.price_per_night * nights if nights else None
+        room.can_book = bool(nights) and room.fits_guests and room.left > 0
+        room.book_query = _stay_query(check_in_date, check_out_date, guests)
 
     context = {
         'hotel': hotel,
         'rooms': rooms,
-        'check_in': check_in,
-        'check_out': check_out,
+        'check_in': check_in_date.isoformat() if check_in_date else '',
+        'check_out': check_out_date.isoformat() if check_out_date else '',
+        'check_in_date': check_in_date,
+        'check_out_date': check_out_date,
+        'guests': guests or '',
+        'nights': nights,
+        'error': error,
+        'today': date.today(),
+        'reviews': review_summary('hotel', hotel),
+        'stay_query': _stay_query(check_in_date, check_out_date, guests),
     }
     return render(request, 'hotels/hotel_detail.html', context)
 
+
 @login_required
 def book_room(request, room_id):
-    room = get_object_or_404(Room, id=room_id)
+    """GET shows the review page; POST creates the pending booking."""
+    room = get_object_or_404(Room.objects.select_related('hotel'), id=room_id)
+    source = request.POST if request.method == 'POST' else request.GET
 
-    check_in = request.GET.get('check_in')
-    check_out = request.GET.get('check_out')
+    check_in_date = parse_date(source.get('check_in'))
+    check_out_date = parse_date(source.get('check_out'))
+    guests = parse_int(source.get('guests'), default=1, minimum=1)
 
-    if not check_in or not check_out:
+    def failed(reason):
         return render(request, 'hotels/booking_failed.html', {
             'room': room,
-            'reason': 'Please select check-in and check-out dates before booking.'
+            'hotel': room.hotel,
+            'reason': reason,
+            'stay_query': _stay_query(check_in_date, check_out_date, guests),
         })
 
-    check_in_date = datetime.strptime(check_in, '%Y-%m-%d').date()
-    check_out_date = datetime.strptime(check_out, '%Y-%m-%d').date()
+    if not check_in_date or not check_out_date:
+        return failed('Please select check-in and check-out dates before booking.')
 
-    if check_out_date <= check_in_date:
-        return render(request, 'hotels/booking_failed.html', {
-            'room': room,
-            'reason': 'Check-out date must be after check-in date.'
-        })
-    if check_in_date < date.today():
-        return render(request, 'hotels/booking_failed.html', {
-            'room': room,
-            'reason': 'Check-in date cannot be in the past.'
-        })
+    error = _stay_error(check_in_date, check_out_date)
+    if error:
+        return failed(error)
 
-    overlapping = Booking.objects.filter(
-        room=room,
-        status__in=['pending', 'confirmed'],
-        check_in_date__lt=check_out_date,
-        check_out_date__gt=check_in_date,
-    ).count()
+    if guests > room.capacity:
+        return failed(f'This room holds up to {room.capacity} guest(s). Please choose a larger room.')
 
-    if overlapping >= room.total_rooms:
-        return render(request, 'hotels/booking_failed.html', {
-            'room': room,
-            'reason': 'No rooms available for the selected dates.'
-        })
+    rooms_left = _rooms_left(room, check_in_date, check_out_date)
+    if rooms_left <= 0:
+        return failed('No rooms available for the selected dates.')
 
     nights = (check_out_date - check_in_date).days
     total_price = room.price_per_night * nights
 
-    booking = Booking.objects.create(
-        user=request.user,
-        booking_type='hotel',
-        hotel=room.hotel,
-        room=room,
-        check_in_date=check_in_date,
-        check_out_date=check_out_date,
-        total_price=total_price,
-        status='pending',
-    )
+    if request.method == 'POST':
+        booking = Booking.objects.create(
+            user=request.user,
+            booking_type='hotel',
+            hotel=room.hotel,
+            room=room,
+            check_in_date=check_in_date,
+            check_out_date=check_out_date,
+            passengers=guests,
+            total_price=total_price,
+            status='pending',
+        )
+        return redirect('payments:choose_payment_method', booking_id=booking.id)
 
-    return redirect('payments:choose_payment_method', booking_id=booking.id)
+    return render(request, 'hotels/confirm_booking.html', {
+        'room': room,
+        'hotel': room.hotel,
+        'check_in': check_in_date,
+        'check_out': check_out_date,
+        'nights': nights,
+        'guests': guests,
+        'total_price': total_price,
+        'rooms_left': rooms_left,
+        'stay_query': _stay_query(check_in_date, check_out_date, guests),
+    })

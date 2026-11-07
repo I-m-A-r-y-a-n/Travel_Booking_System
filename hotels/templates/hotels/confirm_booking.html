@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Review your stay{% endblock %}
+{% block main_class %}wide{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{% url 'hotels:hotel_detail' hotel.id %}?{{ stay_query }}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to hotel</a>
+
+<ol class="stepper">
+    <li class="done">Search</li>
+    <li class="active">Review</li>
+    <li>Payment</li>
+    <li>Confirmation</li>
+</ol>
+
+<div class="detail-grid">
+    <div>
+        <section class="box">
+            <h3><svg class="i"><use href="#i-building"/></svg> Your stay</h3>
+            <div class="mini">
+                <div class="thumb ph ph-{{ hotel.placeholder_variant }}">{% if hotel.image_url %}<img src="{{ hotel.image_url }}" alt="{{ hotel.name }}" onerror="this.remove()">{% endif %}</div>
+                <div>
+                    <h4>{{ hotel.name }} {% if hotel.rating %}<span class="rating"><svg class="i"><use href="#i-star"/></svg> {{ hotel.rating }}</span>{% endif %}</h4>
+                    <span class="loc" style="margin:0"><svg class="i"><use href="#i-pin"/></svg> {{ hotel.location }}</span>
+                </div>
+            </div>
+
+            <div class="journey">
+                <div class="jpoint">
+                    <small>Check-in</small>
+                    <b>{{ check_in|date:"d M Y" }}</b>
+                    <span class="d">{{ check_in|date:"l" }}</span>
+                </div>
+                <div class="jmid">
+                    <b>{{ nights }} night{{ nights|pluralize }}</b>
+                    <div class="line"><svg class="i"><use href="#i-moon"/></svg></div>
+                </div>
+                <div class="jpoint end">
+                    <small>Check-out</small>
+                    <b>{{ check_out|date:"d M Y" }}</b>
+                    <span class="d">{{ check_out|date:"l" }}</span>
+                </div>
+            </div>
+
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-bed"/></svg> Room type</small><b>{{ room.get_room_type_display }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> Guests</small><b>{{ guests }} (max {{ room.capacity }})</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-moon"/></svg> Nights</small><b>{{ nights }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-check"/></svg> Rooms left</small><b>{{ rooms_left }}</b></div>
+            </div>
+        </section>
+
+        {% if hotel.amenity_items %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-check"/></svg> Included facilities</h3>
+            <div class="amenities">
+                {% for a in hotel.amenity_items %}
+                    <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </div>
+
+    <aside class="fare-box sticky">
+        <h3>Price details</h3>
+        <div class="fare-row"><span>{{ room.get_room_type_display }} room</span><b>&#8377;{{ room.price_per_night|floatformat:"0g" }} &times; {{ nights }} night{{ nights|pluralize }}</b></div>
+        <div class="fare-total"><span>Total payable</span><b>&#8377;{{ total_price|floatformat:"0g" }}</b></div>
+        <form method="post" action="{% url 'hotels:book_room' room.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="check_in" value="{{ check_in|date:'Y-m-d' }}">
+            <input type="hidden" name="check_out" value="{{ check_out|date:'Y-m-d' }}">
+            <input type="hidden" name="guests" value="{{ guests }}">
+            <button type="submit" class="btn-lg btn-block">Confirm &amp; continue to payment</button>
+        </form>
+        <p class="secure"><svg class="i"><use href="#i-shield"/></svg> You won&rsquo;t be charged until the next step</p>
+    </aside>
+</div>
+{% endblock %}

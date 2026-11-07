@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Search {{ kind_label }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+
+{% block content %}
+<div class="search-layout">
+    <aside class="search-panel">
+        <h2 class="panel-title">
+            <span class="ico"><svg class="i"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg></span>
+            Search {{ kind_label }}
+        </h2>
+        <form method="get" id="search-form">
+            <div class="route-fields">
+                <div class="field">
+                    <label for="{{ origin_field.id_for_label }}">From</label>
+                    {{ origin_field }}{{ origin_field.errors }}
+                </div>
+                <button type="button" class="swap" data-swap aria-label="Swap from and to"><svg class="i"><use href="#i-swap"/></svg></button>
+                <div class="field">
+                    <label for="{{ dest_field.id_for_label }}">To</label>
+                    {{ dest_field }}{{ dest_field.errors }}
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+                    {{ form.date }}{{ form.date.errors }}
+                </div>
+                <div class="field">
+                    <label for="{{ form.passengers.id_for_label }}">Passengers</label>
+                    {{ form.passengers }}{{ form.passengers.errors }}
+                </div>
+            </div>
+            <button type="submit" class="btn-submit"><svg class="i"><use href="#i-search"/></svg> Search {{ kind_label }}</button>
+            <datalist id="city-list">{% for city in cities %}<option value="{{ city }}">{% endfor %}</datalist>
+        </form>
+        <p class="form-note">Partial city names work, e.g. &ldquo;Ban&rdquo; finds Bangalore.</p>
+    </aside>
+
+    <section>
+        {% if searched %}
+            <div class="results-head">
+                <div>
+                    <h1 class="results-title">{{ origin_field.value }} <svg class="i"><use href="#i-arrow-right"/></svg> {{ dest_field.value }}</h1>
+                    <p class="results-meta">
+                        {{ items|length }} {{ kind_label|lower }} found &middot; {{ form.cleaned_data.date|date:"D, d M Y" }} &middot; {{ passengers }} {{ unit }}{{ passengers|pluralize }}
+                    </p>
+                </div>
+                <div class="sort">
+                    <label for="sort">Sort by</label>
+                    <select name="sort" id="sort" form="search-form" onchange="this.form.submit()">
+                        {% for value, label in form.fields.sort.choices %}
+                            <option value="{{ value }}" {% if form.sort.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {% if items %}
+                <div class="result-stack">
+                {% for item in items %}
+                    <article class="rcard trip">
+                        <div class="carrier">
+                            <span class="logo {{ kind }}">{{ item.logo_text }}</span>
+                            <div><b>{{ item.carrier }}</b><small>{{ item.number }}</small></div>
+                        </div>
+
+                        <div class="route">
+                            <div class="stop"><b>{{ item.departure_time|time:"H:i" }}</b><span>{{ item.origin }}</span></div>
+                            <div class="path"><b>{{ item.duration }}</b><div class="line"></div><span>{{ item.tag }}</span></div>
+                            <div class="stop end"><b>{{ item.arrival_time|time:"H:i" }}{% if item.day_offset %}<sup>+{{ item.day_offset }}</sup>{% endif %}</b><span>{{ item.dest }}</span></div>
+                        </div>
+
+                        <div class="pricebox">
+                            <div>
+                                <div class="price">&#8377;{{ item.price|floatformat:"0g" }}</div>
+                                <span class="price-note">per {{ unit }}</span>
+                            </div>
+                            <div class="actions">
+                                <a class="btn btn-ghost btn-sm" href="{% url detail_url item.id %}?passengers={{ passengers }}">Details</a>
+                                {% if item.seats_left >= passengers %}
+                                    <a class="btn btn-sm" href="{% url book_url item.id %}?passengers={{ passengers }}">Book now</a>
+                                {% elif item.seats_left > 0 %}
+                                    <span class="btn btn-sm btn-disabled">Not enough seats</span>
+                                {% else %}
+                                    <span class="btn btn-sm btn-disabled">Sold out</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="rfoot">
+                            <div class="amenities">
+                                {% for a in item.amenity_items|slice:":4" %}
+                                    <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
+                                {% endfor %}
+                                {% if item.amenity_items|length > 4 %}
+                                    <span class="amen more">+{{ item.amenity_items|slice:"4:"|length }} more</span>
+                                {% endif %}
+                            </div>
+                            {% if item.seats_left == 0 %}
+                                <span class="badge bad">Sold out</span>
+                            {% elif item.seats_left <= 5 %}
+                                <span class="badge warn">Only {{ item.seats_left }} seat{{ item.seats_left|pluralize }} left</span>
+                            {% else %}
+                                <span class="seats"><svg class="i"><use href="#i-users"/></svg> {{ item.seats_left }} seats available</span>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty">
+                    <div class="ico"><svg class="i"><use href="#i-search"/></svg></div>
+                    <h3>No {{ kind_label|lower }} found</h3>
+                    <p>Nothing matches this route on that date. Try another date, or a shorter city name.</p>
+                </div>
+            {% endif %}
+        {% elif has_errors %}
+            <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>Please fix the highlighted fields in the search form and try again.</div></div>
+        {% else %}
+            <div class="empty">
+                <div class="ico"><svg class="i"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg></div>
+                <h3>Where to next?</h3>
+                <p>Enter your route and travel date to see available {{ kind_label|lower }}, with timings, facilities and live seat counts.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
