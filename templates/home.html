@@ -33,8 +33,8 @@
 
         <div class="panel p-h"><form class="srow" action="{% url 'hotels:search_hotels' %}" method="get">
           <div><label>Destination</label><input name="destination" placeholder="Goa" required></div>
-          <div><label>Check-in</label><input type="date" name="check_in" required></div>
-          <div><label>Check-out</label><input type="date" name="check_out" required></div>
+          <div><label>Check-in</label><input type="date" name="check_in" required data-stay-in></div>
+          <div><label>Check-out</label><input type="date" name="check_out" required data-stay-out></div>
           <div><label>Guests</label><input type="number" name="guests" value="1" min="1" required></div>
           <button type="submit">Search</button>
         </form></div>
