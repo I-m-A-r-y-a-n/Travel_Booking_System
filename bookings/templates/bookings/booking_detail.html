@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Booking {{ info.ref }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{% url 'my_bookings' %}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to my bookings</a>
+
+<section class="bd-hero {{ kind }}">
+    {% if kind == 'hotel' and item.image_url %}<img class="bd-img" src="{{ item.image_url }}" alt="{{ item.name }}" onerror="this.remove()">{% endif %}
+    <div class="bd-in">
+        <div class="carrier">
+            <span class="logo lg {{ kind }}">{{ info.logo_text }}</span>
+            <div>
+                <b>{{ info.title }}</b>
+                <small>{% if kind == 'hotel' %}{{ info.origin }}{% if info.number %} &middot; {{ info.number }}{% endif %}{% else %}{{ info.kind_label }} {{ info.number }}{% if info.tag %} &middot; {{ info.tag }}{% endif %}{% endif %}</small>
+            </div>
+        </div>
+        <div class="bd-side">
+            <span class="badge {{ booking.status }}">{{ info.status_label }}</span>
+            <span class="result-ref"><svg class="i"><use href="#i-ticket"/></svg> {{ info.ref }}</span>
+        </div>
+    </div>
+</section>
+
+<ol class="timeline">
+    {% for step in timeline %}
+    <li class="{{ step.state }}">
+        <span class="dot"><svg class="i"><use href="#i-{% if step.state == 'fail' %}x-circle{% else %}check{% endif %}"/></svg></span>
+        <b>{{ step.label }}</b>
+        {% if step.note %}<small>{{ step.note|date:"d M Y, H:i" }}</small>{% endif %}
+    </li>
+    {% endfor %}
+</ol>
+
+<div class="detail-grid">
+    <div>
+        <section class="box">
+            <h3><svg class="i"><use href="#i-{% if kind == 'hotel' %}bed{% else %}pin{% endif %}"/></svg> {% if kind == 'hotel' %}Your stay{% else %}Your journey{% endif %}</h3>
+            {% if kind == 'hotel' %}
+            <div class="journey">
+                <div class="jpoint"><small>Check-in</small><b>{{ info.check_in|date:"d M Y" }}</b><span class="d">{{ info.check_in|date:"l" }}</span></div>
+                <div class="jmid"><b>{{ info.nights }} night{{ info.nights|pluralize }}</b><div class="line"><svg class="i"><use href="#i-moon"/></svg></div><span>{{ info.origin }}</span></div>
+                <div class="jpoint end"><small>Check-out</small><b>{{ info.check_out|date:"d M Y" }}</b><span class="d">{{ info.check_out|date:"l" }}</span></div>
+            </div>
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-bed"/></svg> Room</small><b>{{ info.number|default:"-" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> Guests</small><b>{{ info.passengers }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-moon"/></svg> Nights</small><b>{{ info.nights }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-pin"/></svg> Location</small><b>{{ info.origin }}</b></div>
+            </div>
+            {% else %}
+            {% include 'partials/journey.html' %}
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Travel date</small><b>{{ item.departure_time|date:"D, d M Y" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-clock"/></svg> Duration</small><b>{{ item.duration }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> {% if kind == 'bus' %}Seats{% else %}Passengers{% endif %}</small><b>{{ info.passengers }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-{{ info.icon }}"/></svg> {% if kind == 'bus' %}Bus no.{% else %}Flight no.{% endif %}</small><b>{{ info.number }}</b></div>
+            </div>
+            {% endif %}
+        </section>
+
+        {% if kind == 'hotel' and item.description %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-info"/></svg> About {{ item.name }}</h3>
+            <p class="mt0">{{ item.description }}</p>
+        </section>
+        {% endif %}
+
+        {% if item.amenity_items %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-check"/></svg> Included facilities</h3>
+            <div class="amenities">
+                {% for a in item.amenity_items %}<span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>{% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-user"/></svg> Booked by</h3>
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-user"/></svg> Name</small><b>{{ request.user.name|default:"-" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-mail"/></svg> Email</small><b>{{ request.user.email }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-phone"/></svg> Mobile</small><b>{{ request.user.mobile_number|default:"-" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Booked on</small><b>{{ info.booked_on|date:"d M Y" }}</b></div>
+            </div>
+        </section>
+
+        {% if review %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-star"/></svg> Your review</h3>
+            <div class="stars">{% for on in review.star_list %}<svg class="i star {% if on %}on{% endif %}"><use href="#i-star"/></svg>{% endfor %}</div>
+            <p>{{ review.comment }}</p>
+            <a class="btn btn-ghost btn-sm" href="{% url 'reviews:edit_review' review.id %}">Edit review</a>
+        </section>
+        {% endif %}
+    </div>
+
+    <aside class="fare-box sticky">
+        <h3>Payment summary</h3>
+        {% if info.unit_price %}<div class="fare-row"><span>&#8377;{{ info.unit_price|floatformat:"0g" }} &times; {{ info.qty_text }}</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>{% endif %}
+        <div class="fare-total"><span>Total</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>
+
+        {% if payments %}
+        <div class="pay-list">
+            {% for p in payments %}
+            <div class="pay-item {{ p.status|lower }}">
+                <span class="pi"><svg class="i"><use href="#i-{% if p.status == 'SUCCESS' %}check-circle{% else %}x-circle{% endif %}"/></svg></span>
+                <div><b>{{ p.get_payment_method_display }} &middot; {{ p.get_status_display }}</b><small>#{{ p.id }} &middot; {{ p.created_at|date:"d M Y, H:i" }}</small></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="side-actions">
+            {% if booking.status == 'confirmed' %}
+                <a class="btn btn-lg btn-block pay-btn" href="{% url 'download_ticket' booking.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket</a>
+                {% if not review %}<a class="btn btn-ghost btn-block" href="{% url 'reviews:write_review' booking.id %}">Write a review</a>{% endif %}
+                <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
+            {% elif booking.status == 'pending' %}
+                <a class="btn btn-lg btn-block pay-btn" href="{% url 'payments:choose_payment_method' booking.id %}"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ info.total|floatformat:"0g" }}</a>
+                <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
+            {% else %}
+                <a class="btn btn-lg btn-block" href="{% url 'home' %}">Search again</a>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+{% endblock %}

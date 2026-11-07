@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <script src="{% static 'js/booking.js' %}" defer></script>
+    <script src="{% static 'js/notifications.js' %}" defer></script>
 </head>
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -45,6 +46,18 @@
             <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
             <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
             <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+            <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></symbol>
+            <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><line x1="11" y1="18" x2="13" y2="18"/></symbol>
+            <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6"/><line x1="5" y1="10" x2="5" y2="18"/><line x1="10" y1="10" x2="10" y2="18"/><line x1="14" y1="10" x2="14" y2="18"/><line x1="19" y1="10" x2="19" y2="18"/><line x1="3" y1="21" x2="21" y2="21"/></symbol>
+            <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+            <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12.5 11 15.5 16.5 9"/></symbol>
+            <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+            <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><line x1="14" y1="5" x2="14" y2="19" stroke-dasharray="2 2"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+            <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+            <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></symbol>
+            <symbol id="i-rupee" viewBox="0 0 24 24"><path d="M6 4h12"/><path d="M6 9h12"/><path d="M8 4c5 0 7 2 7 5s-2 5-7 5l8 6"/></symbol>
         </defs>
     </svg>
     {% with page=request.resolver_match.url_name %}
@@ -60,17 +73,20 @@
                 <a href="{% url 'my_bookings' %}" class="{% if page == 'my_bookings' %}active{% endif %}">My Bookings</a>
                 <a href="{% url 'reviews:my_reviews' %}">My Reviews</a>
                 <a href="{% url 'logout' %}">Logout</a>
-                <a href="{% url 'notifications:list' %}" title="Notifications" style="position:relative; font-size:1.25em;">
-    &#128276;
-    {% if unread_notification_count %}
-        <span style="position:absolute; top:-8px; right:-10px; background:#e84118; color:#fff; font-size:11px; font-weight:bold; border-radius:10px; padding:1px 6px; line-height:1.4;">{{ unread_notification_count }}</span>
-    {% endif %}
-</a>
             {% else %}
                 <a href="{% url 'login' %}" class="{% if page == 'login' %}active{% endif %}">Login</a>
                 <a href="{% url 'register' %}" class="cta">Register</a>
             {% endif %}
         </nav>
+        {% if user.is_authenticated %}
+        <div class="bell-wrap" data-bell data-panel-url="{% url 'notifications:panel' %}">
+            <button type="button" class="bell" aria-label="Notifications" aria-expanded="false" aria-haspopup="true">
+                <svg class="i"><use href="#i-bell"/></svg>
+                <span class="bell-badge" data-bell-badge {% if not unread_notification_count %}hidden{% endif %}>{{ unread_notification_count }}</span>
+            </button>
+            <div class="np" data-panel hidden></div>
+        </div>
+        {% endif %}
     </header>
     {% endwith %}
 

@@ -1,19 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Edit Review{% endblock %}
+{% block title %}Edit review{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Edit Your Review</h2>
-<p>
-    {% if review.booking.hotel %}{{ review.booking.hotel.name }}
-    {% elif review.booking.flight %}{{ review.booking.flight }}
-    {% elif review.booking.bus %}{{ review.booking.bus }}
-    {% endif %}
-</p>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save Changes</button>
-</form>
-<p><a href="{% url 'reviews:my_reviews' %}">Cancel</a></p>
+{% include 'reviews/_form.html' %}
 {% endblock %}

@@ -1,35 +1,46 @@
 {% extends 'base.html' %}
 
-{% block title %}My Reviews{% endblock %}
+{% block title %}My reviews{% endblock %}
 
 {% block content %}
-<h2>My Reviews</h2>
+<div class="sec-head"><h2>My reviews</h2><a href="{% url 'my_bookings' %}">My bookings</a></div>
+
 {% if reviews %}
-    <ul class="result-list">
-    {% for review in reviews %}
-        <li>
-            <span>
-                <strong>
-                    {% if review.booking.hotel %}{{ review.booking.hotel.name }}
-                    {% elif review.booking.flight %}{{ review.booking.flight }}
-                    {% elif review.booking.bus %}{{ review.booking.bus }}
-                    {% else %}Review{% endif %}
-                </strong>
-                — {{ review.rating }}/5 — {{ review.created_at|date:"d M Y" }}
-                <br>{{ review.comment }}
-            </span>
-            <a href="{% url 'reviews:edit_review' review.id %}">Edit</a>
-            <form method="post"
-                  action="{% url 'reviews:delete_review' review.id %}"
-                  style="display:inline;"
-                  onsubmit="return confirm('Delete this review? This cannot be undone.');">
+<div class="tiles">
+    <div class="tile"><span class="ico"><svg class="i"><use href="#i-star"/></svg></span><div><b>{{ count }}</b><span>Review{{ count|pluralize }} written</span></div></div>
+    <div class="tile"><span class="ico warn"><svg class="i"><use href="#i-star"/></svg></span><div><b>{{ average }}</b><span>Average rating you give</span></div></div>
+</div>
+
+{% for review in reviews %}
+<article class="rv-card {{ review.info.kind }}">
+    <span class="bico"><svg class="i"><use href="#i-{{ review.info.icon|default:'star' }}"/></svg></span>
+    <div class="rv-body">
+        <div class="rv-top">
+            <div>
+                <h3>{{ review.info.title|default:"Review" }}</h3>
+                <div class="sub">{% if review.info.kind == 'hotel' %}{{ review.info.origin }}{% else %}{{ review.info.origin }} <svg class="i"><use href="#i-arrow-right"/></svg> {{ review.info.dest }}{% endif %}</div>
+            </div>
+            <span class="rv-date">{{ review.created_at|date:"d M Y" }}</span>
+        </div>
+        <div class="stars">{% for on in review.star_list %}<svg class="i star {% if on %}on{% endif %}"><use href="#i-star"/></svg>{% endfor %}</div>
+        <p class="rv-text">{{ review.comment }}</p>
+        <div class="acts">
+            {% if review.booking %}<a class="btn btn-ghost btn-sm" href="{% url 'booking_detail' review.booking.id %}">View booking</a>{% endif %}
+            <a class="btn btn-ghost btn-sm" href="{% url 'reviews:edit_review' review.id %}">Edit</a>
+            <form method="post" action="{% url 'reviews:delete_review' review.id %}" onsubmit="return confirm('Delete this review? This cannot be undone.');">
                 {% csrf_token %}
-                <button type="submit">Delete</button>
+                <button type="submit" class="btn btn-ghost btn-sm danger">Delete</button>
             </form>
-        </li>
-    {% endfor %}
-    </ul>
+        </div>
+    </div>
+</article>
+{% endfor %}
 {% else %}
-    <p>You have not written any reviews yet. Open <a href="{% url 'my_bookings' %}">My Bookings</a> and use "Write Review" on a confirmed booking.</p>
+<section class="box state-box">
+    <span class="state-ico"><svg class="i"><use href="#i-star"/></svg></span>
+    <h2>No reviews yet</h2>
+    <p class="muted">After a trip, open the booking and share how it went. It helps other travellers choose.</p>
+    <div class="ticket-actions"><a class="btn btn-lg" href="{% url 'my_bookings' %}">Go to my bookings</a></div>
+</section>
 {% endif %}
 {% endblock %}
