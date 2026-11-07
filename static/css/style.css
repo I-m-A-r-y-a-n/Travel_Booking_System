@@ -26,7 +26,7 @@ a{color:var(--brand);text-decoration:none}
 .site-nav a:hover,.site-nav a.active{background:var(--lilac);color:var(--brand)}
 .site-nav a.cta{background:var(--grad);color:#fff;margin-left:.5rem}
 .site-nav a.cta:hover{filter:brightness(1.1)}
-.nav-toggle{position:absolute;opacity:0;pointer-events:none}
+.nav-toggle{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .burger{display:none;cursor:pointer;width:42px;height:42px;border-radius:12px;background:var(--lilac);align-items:center;justify-content:center}
 .burger span,.burger span::before,.burger span::after{display:block;width:20px;height:2px;background:var(--ink);position:relative;content:""}
 .burger span::before{position:absolute;top:-6px}.burger span::after{position:absolute;top:6px}
@@ -75,7 +75,9 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
 /* Search card with CSS-only tabs */
 .search-card{background:#fff;border-radius:26px;padding:1rem;box-shadow:var(--shadow);margin-top:1.5rem}
-.tabs input{position:absolute;opacity:0;pointer-events:none}
+/* Only the tab radios are hidden. The old rule (.tabs input) also hid every
+   text/date field inside the search forms, which is why clicking them did nothing. */
+.tabs > input[type=radio]{position:absolute;opacity:0;pointer-events:none}
 .tabs > label{display:inline-block;width:auto;margin:0 .25rem .8rem 0;padding:.5rem 1.2rem;border-radius:999px;cursor:pointer;color:var(--ink);font-size:.9rem;transition:.2s}
 .tabs > label:hover{background:var(--lilac)}
 .panel{display:none}
@@ -105,6 +107,229 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:2rem}
 .site-footer h4{color:#fff;font-family:var(--h);margin:0 0 .8rem}.site-footer a{display:block;color:#c9c4f0;padding:.15rem 0}
 .site-footer a:hover{color:#fff}.copy{border-top:1px solid #3a3380;margin-top:2rem;padding-top:1rem;font-size:.85rem}
+
+/* ======================================================================
+   Listings, detail pages and booking review (flights / buses / hotels)
+   ====================================================================== */
+.i{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-.18em}
+.site-main.wide{max-width:1240px}
+.back-link{display:inline-flex;align-items:center;gap:.4rem;color:var(--muted);font-weight:500;font-size:.92rem;margin-bottom:1rem}
+.back-link:hover{color:var(--brand);text-decoration:none}
+
+/* Buttons */
+.btn-sm{padding:.55rem 1.15rem;font-size:.9rem;box-shadow:0 6px 14px rgba(75,63,224,.25)}
+.btn-lg{padding:1rem 1.8rem;font-size:1.05rem}
+.btn-block{display:block;width:100%;text-align:center}
+.btn-ghost{background:#fff;color:var(--brand);border:1.5px solid var(--lilac2);box-shadow:none}
+.btn-ghost:hover{background:var(--lilac);box-shadow:none;transform:none}
+.btn-disabled,.btn-disabled:hover{background:var(--lilac2);color:var(--muted);box-shadow:none;transform:none;cursor:not-allowed}
+
+/* Search layout: form on the left, results on the right */
+.search-layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:1.5rem;align-items:start}
+.search-panel{position:sticky;top:88px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:1.4rem;box-shadow:var(--shadow)}
+.panel-title{display:flex;align-items:center;gap:.65rem;font:600 1.2rem var(--h);margin:0 0 1.2rem}
+.panel-title .ico{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--grad);color:#fff;font-size:1.1rem}
+.field{margin-bottom:.9rem}
+.field .errorlist{margin:.25rem 0 0}
+.field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.75rem}
+.field-row > *,.stay-form > *{min-width:0}
+.search-panel input[type=date],.fare-box input[type=date]{padding-left:.8rem;padding-right:.6rem}
+.route-fields{position:relative}
+.swap{position:absolute;right:.7rem;top:calc(50% + .1rem);transform:translateY(-50%);z-index:2;width:34px;height:34px;padding:0;border-radius:50%;
+  display:grid;place-items:center;background:#fff;color:var(--brand);border:1.5px solid var(--line);box-shadow:0 4px 10px rgba(43,36,144,.12)}
+.swap:hover{transform:translateY(-50%) rotate(180deg);box-shadow:0 4px 10px rgba(43,36,144,.18);background:var(--lilac)}
+.swap .i{transform:rotate(90deg)}
+.search-panel .btn-submit{width:100%;margin-top:.4rem;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.form-note{color:var(--muted);font-size:.85rem;margin:.9rem 0 0}
+
+/* Results */
+.results-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.results-title{font:600 1.5rem var(--h);margin:0;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.results-title .i{color:var(--brand2)}
+.results-meta{color:var(--muted);font-size:.92rem;margin:.25rem 0 0}
+.sort{display:flex;align-items:center;gap:.5rem;font-size:.9rem;color:var(--muted)}
+.sort label{margin:0;white-space:nowrap}
+.sort select{width:auto;padding:.5rem 2rem .5rem .9rem;border-radius:999px;font-size:.9rem}
+.result-stack{display:grid;gap:1rem}
+.rcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);transition:.25s}
+.rcard:hover{border-color:var(--lilac2);transform:translateY(-2px);box-shadow:0 16px 36px rgba(43,36,144,.14)}
+
+/* Flight / bus card */
+.rcard.trip{display:grid;grid-template-columns:190px minmax(0,1fr) 240px;gap:1rem 1.5rem;align-items:center;padding:1.25rem 1.5rem}
+.carrier{display:flex;align-items:center;gap:.8rem;min-width:0}
+.carrier b{display:block;font-weight:700;line-height:1.25}
+.carrier small{color:var(--muted)}
+.logo{display:grid;place-items:center;flex:none;width:46px;height:46px;border-radius:14px;color:#fff;font:600 1rem var(--h);letter-spacing:.02em;background:var(--grad)}
+.logo.bus{background:linear-gradient(135deg,#2B2490,#5B8DEF)}
+.logo.lg{width:56px;height:56px;border-radius:16px;font-size:1.15rem}
+.route{display:grid;grid-template-columns:auto minmax(80px,1fr) auto;gap:1rem;align-items:center}
+.stop b{display:block;font:600 1.5rem var(--h);line-height:1.1}
+.stop b sup{font-size:.6em;color:var(--warn);margin-left:2px}
+.stop span{color:var(--muted);font-size:.88rem}
+.stop.end{text-align:right}
+.path{text-align:center;color:var(--muted);font-size:.8rem}
+.path .line{position:relative;height:2px;margin:.45rem 0;background:linear-gradient(90deg,var(--lilac2),var(--brand2),var(--lilac2))}
+.path .line::before,.path .line::after{content:"";position:absolute;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--brand2)}
+.path .line::before{left:0}.path .line::after{right:0}
+.path b{display:block;color:var(--ink);font-weight:600;font-size:.88rem}
+.pricebox{text-align:right}
+.price{font:600 1.7rem var(--h);line-height:1.1;color:var(--ink)}
+.price-note{display:block;color:var(--muted);font-size:.82rem;margin-bottom:.7rem}
+.actions{display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap}
+.rfoot{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding-top:.9rem;border-top:1px dashed var(--line)}
+
+/* Hotel card */
+.rcard.stay{display:grid;grid-template-columns:270px minmax(0,1fr) 200px;overflow:hidden}
+.thumb{position:relative;min-height:210px;overflow:hidden;display:block}
+.thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.stay-body{padding:1.25rem 0 1.25rem 1.5rem;min-width:0}
+.stay-top{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.15rem}
+.stay-top h3{margin:0;font-size:1.3rem}
+.stay-top h3 a{color:var(--ink)}
+.stay-top h3 a:hover{color:var(--brand);text-decoration:none}
+.loc{display:flex;align-items:center;gap:.35rem;color:var(--muted);font-size:.92rem;margin:0 0 .6rem}
+.desc{color:var(--muted);font-size:.92rem;margin:0 0 .8rem}
+.stay-side{padding:1.25rem 1.5rem 1.25rem 1rem;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;border-left:1px dashed var(--line);margin:1rem 0}
+
+/* Image placeholders: crops of the default hotel photo, used when a hotel has no photo of its own */
+.ph{background-color:#cfc9ee;background-image:url('../img/hotels.jpg');background-size:cover;background-position:center}
+.ph-1{background-size:230%;background-position:6% 88%}
+.ph-2{background-size:210%;background-position:48% 38%}
+.ph-3{background-size:240%;background-position:98% 42%}
+.ph-4{background-size:300%;background-position:30% 18%}
+
+/* Chips, badges, rating */
+.amenities{display:flex;flex-wrap:wrap;gap:.45rem}
+.amen{display:inline-flex;align-items:center;gap:.4rem;background:var(--lilac);color:var(--ink);padding:.32rem .75rem;border-radius:999px;font-size:.84rem;font-weight:500}
+.amen .i{width:15px;height:15px;color:var(--brand)}
+.amen.more{background:#fff;border:1px solid var(--line);color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .65rem;border-radius:999px;font-size:.76rem;font-weight:700;background:var(--lilac2);color:var(--ink);white-space:nowrap}
+.badge.ok{background:#DDF4EA;color:#14744E}
+.badge.warn{background:#FDF0D5;color:#8A5604}
+.badge.bad{background:#FDE3E7;color:#9C2336}
+.rating{display:inline-flex;align-items:center;gap:.25rem;background:var(--ok);color:#fff;border-radius:8px;padding:.1rem .5rem;font-weight:700;font-size:.85rem}
+.rating .i{width:12px;height:12px;fill:#fff;stroke:#fff}
+.seats{font-size:.86rem;color:var(--muted);display:inline-flex;align-items:center;gap:.35rem}
+
+/* Boxes, banners, facts */
+.box{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:1.5rem;margin-bottom:1.25rem}
+.box > h3{display:flex;align-items:center;gap:.5rem;font-size:1.15rem;margin-bottom:1rem}
+.box > h3 .i{color:var(--brand2)}
+.detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:1.5rem;align-items:start}
+.sticky{position:sticky;top:88px}
+.banner{position:relative;display:flex;align-items:flex-end;min-height:220px;margin-bottom:1.25rem;border-radius:var(--r);overflow:hidden;color:#fff;
+  background:linear-gradient(135deg,#1B1659,#4B3FE0 55%,#7C5CF5);box-shadow:var(--shadow)}
+.banner-bg{position:absolute;inset:0;background-size:cover;background-position:center}
+.banner.plane .banner-bg{background-image:url('../img/flights.jpg')}
+.banner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(27,22,89,.05) 30%,rgba(27,22,89,.82))}
+.banner-mark{position:absolute;right:2rem;top:1.2rem;width:120px;height:120px;color:rgba(255,255,255,.18);stroke-width:1.2}
+.banner-in{position:relative;z-index:1;width:100%;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.5rem}
+.banner .carrier b{font:600 1.6rem var(--h)}
+.banner .carrier small{color:#dcd7fb}
+.banner .logo{background:rgba(255,255,255,.2);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.35)}
+.journey{display:grid;grid-template-columns:1fr minmax(110px,.7fr) 1fr;gap:1rem;align-items:center;background:var(--lilac);border:1px solid var(--line);border-radius:16px;padding:1.25rem 1.5rem}
+.jpoint small{display:block;color:var(--muted);font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.15rem}
+.jpoint b{display:block;font:600 1.45rem var(--h);line-height:1.15}
+.jpoint .t{display:block;margin-top:.3rem;font-weight:700;font-size:1.05rem}
+.jpoint .d{display:block;color:var(--muted);font-size:.88rem}
+.jpoint.end{text-align:right}
+.jmid{text-align:center;color:var(--muted);font-size:.82rem}
+.jmid .line{position:relative;height:2px;margin:.5rem 0;background:repeating-linear-gradient(90deg,var(--brand2) 0 6px,transparent 6px 12px)}
+.jmid .i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;padding:4px;border-radius:50%;background:var(--lilac);color:var(--brand)}
+.jmid b{display:block;color:var(--ink);font-size:.95rem}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-top:1rem}
+.fact{background:#fff;border:1px solid var(--line);border-radius:14px;padding:.75rem 1rem}
+.fact small{display:flex;align-items:center;gap:.35rem;color:var(--muted);font-size:.78rem;font-weight:500}
+.fact b{display:block;margin-top:.15rem;font-size:.98rem}
+.gallery{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:170px 170px;gap:.6rem;border-radius:var(--r);overflow:hidden;margin-bottom:1.25rem;box-shadow:var(--shadow)}
+.gallery > div{position:relative;background-size:cover;background-position:center}
+.gallery .g-main{grid-row:1 / 3}
+.gallery.single{grid-template-columns:1fr;grid-template-rows:340px}
+.gallery img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.detail-title{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:0 0 .3rem}
+.detail-title h1{font-size:clamp(1.7rem,3.2vw,2.3rem);margin:0}
+
+/* Fare box and forms inside it */
+.fare-box{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:1.5rem}
+.fare-box h3{margin-bottom:.9rem}
+.fare-row{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.6rem 0;border-bottom:1px dashed var(--line);font-size:.95rem}
+.fare-row span:first-child{color:var(--muted)}
+.fare-total{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:1rem 0 1.1rem}
+.fare-total span:first-child{font-weight:700}
+.fare-total b{font:600 1.9rem var(--h);color:var(--brand)}
+.fare-box .field{margin:1rem 0 .4rem}
+.fare-box .hint{color:var(--muted);font-size:.85rem;margin:.4rem 0 0}
+.secure{display:flex;align-items:center;justify-content:center;gap:.4rem;color:var(--muted);font-size:.82rem;margin:.9rem 0 0}
+
+/* Messages */
+.alert{display:flex;align-items:flex-start;gap:.6rem;border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem;border:1px solid;font-size:.94rem}
+.alert .i{margin-top:.2rem}
+.alert.error{background:#FDECEF;border-color:#F5B7C0;color:#8E1F30}
+.alert.info{background:var(--lilac);border-color:var(--lilac2);color:var(--ink)}
+.empty{text-align:center;padding:3.5rem 1.5rem;background:#fff;border:1.5px dashed var(--lilac2);border-radius:var(--r);color:var(--muted)}
+.empty .ico{display:grid;place-items:center;width:68px;height:68px;margin:0 auto 1rem;border-radius:50%;background:var(--lilac);color:var(--brand);font-size:1.9rem}
+.empty h3{color:var(--ink);margin-bottom:.4rem}
+.empty p{max-width:420px;margin:0 auto}
+
+.jmid .i.plane{transform:translate(-50%,-50%) rotate(45deg)}
+.banner img.banner-bg{width:100%;height:100%;object-fit:cover}
+.mini{display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem}
+.mini .thumb{width:130px;min-height:96px;height:96px;border-radius:14px;flex:none}
+.mini h4{margin:0 0 .15rem;font:600 1.2rem var(--h)}
+
+/* Booking steps */
+.stepper{display:flex;gap:.5rem;list-style:none;margin:0 0 1.5rem;padding:0;flex-wrap:wrap;counter-reset:s}
+.stepper li{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-weight:500;font-size:.9rem;counter-increment:s}
+.stepper li::before{content:counter(s);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#fff;border:1.5px solid var(--line);font-size:.8rem;font-weight:700}
+.stepper li + li::after{content:"";order:-1;width:28px;height:2px;background:var(--line);margin-right:.2rem}
+.stepper li.done{color:var(--ink)}
+.stepper li.done::before{background:var(--ok);border-color:var(--ok);color:#fff;content:"\2713"}
+.stepper li.active{color:var(--ink);font-weight:700}
+.stepper li.active::before{background:var(--grad);border-color:transparent;color:#fff}
+
+/* Reviews, rooms, misc */
+.review{padding:.9rem 0;border-top:1px solid var(--line)}
+.review:first-of-type{border-top:0;padding-top:0}
+.review .who{display:flex;align-items:center;gap:.6rem;font-weight:700;margin-bottom:.25rem}
+.review p{margin:0;color:var(--muted)}
+.review-sum{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem}
+.review-sum .big{font:600 2rem var(--h);color:var(--ink)}
+.room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:1.1rem 0;border-top:1px solid var(--line)}
+.room:first-of-type{border-top:0;padding-top:.2rem}
+.room h4{display:flex;align-items:center;gap:.5rem;margin:0 0 .25rem;font:600 1.1rem var(--h)}
+.room h4 .i{color:var(--brand2)}
+.room .meta{display:flex;gap:.5rem 1rem;flex-wrap:wrap;color:var(--muted);font-size:.88rem}
+.room .meta span{display:inline-flex;align-items:center;gap:.35rem}
+.room-price{text-align:right}
+.room-price .price{font-size:1.4rem}
+.stay-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;align-items:end}
+.stay-form button{width:100%}
+.notice{max-width:560px;margin:2rem auto;text-align:center}
+.notice .ico{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 1rem;border-radius:50%;font-size:2rem;background:#FDE3E7;color:var(--bad)}
+.notice .actions{justify-content:center;margin-top:1.2rem}
+.muted{color:var(--muted)}
+.mt0{margin-top:0}
+
+@media(max-width:1020px){
+  .search-layout,.detail-grid{grid-template-columns:1fr}
+  .search-panel,.sticky{position:static}
+  .rcard.trip{grid-template-columns:1fr}
+  .pricebox{display:flex;align-items:center;justify-content:space-between;gap:1rem;text-align:left}
+  .price-note{margin:0}
+  .rcard.stay{grid-template-columns:230px minmax(0,1fr)}
+  .stay-side{grid-column:1 / -1;flex-direction:row;justify-content:space-between;align-items:center;border-left:0;border-top:1px dashed var(--line);margin:0;padding:1rem 1.5rem}
+}
+@media(max-width:620px){
+  .rcard.stay{grid-template-columns:1fr}
+  .thumb{min-height:190px}
+  .stay-body{padding:1.1rem 1.25rem 0}
+  .route{gap:.6rem}.stop b{font-size:1.25rem}
+  .journey{grid-template-columns:1fr;text-align:left}.jpoint.end{text-align:left}.jmid{display:none}
+  .gallery{grid-template-columns:1fr 1fr;grid-template-rows:200px 110px 110px}
+  .gallery .g-main{grid-column:1 / 3;grid-row:1}
+  .room{grid-template-columns:1fr}.room-price{text-align:left}
+  .actions{justify-content:flex-start}
+}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes fadeOut{to{opacity:0;visibility:hidden}}

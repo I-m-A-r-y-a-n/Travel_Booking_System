@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.carrier }} {{ item.number }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+
+{% block content %}
+<a class="back-link" href="javascript:history.back()"><svg class="i"><use href="#i-arrow-left"/></svg> Back to results</a>
+
+<div class="detail-grid">
+    <div>
+        <div class="banner {% if kind == 'flight' %}plane{% endif %}">
+            {% if kind == 'flight' %}
+                <div class="banner-bg"></div>
+            {% elif item.image_url %}
+                <img class="banner-bg" src="{{ item.image_url }}" alt="{{ item.carrier }}" onerror="this.remove()">
+            {% else %}
+                <svg class="i banner-mark"><use href="#i-bus"/></svg>
+            {% endif %}
+            <div class="banner-in">
+                <div class="carrier">
+                    <span class="logo lg {{ kind }}">{{ item.logo_text }}</span>
+                    <div><b>{{ item.carrier }}</b><small>{{ kind_label }} {{ item.number }}</small></div>
+                </div>
+                <div class="actions">
+                    {% if reviews.average %}<span class="rating"><svg class="i"><use href="#i-star"/></svg> {{ reviews.average }}</span>{% endif %}
+                    <span class="badge">{{ item.tag }}</span>
+                </div>
+            </div>
+        </div>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-pin"/></svg> Journey</h3>
+            {% include 'partials/journey.html' %}
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Travel date</small><b>{{ item.departure_time|date:"D, d M Y" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-clock"/></svg> Duration</small><b>{{ item.duration }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> Seats left</small><b>{{ seats_left }} of {{ item.total_seats }}</b></div>
+                <div class="fact">
+                    {% if kind == 'bus' %}
+                        <small><svg class="i"><use href="#i-bus"/></svg> Bus type</small><b>{{ item.tag }}</b>
+                    {% else %}
+                        <small><svg class="i"><use href="#i-plane"/></svg> Flight number</small><b>{{ item.number }}</b>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-check"/></svg> Facilities</h3>
+            {% if item.amenity_items %}
+                <div class="amenities">
+                    {% for a in item.amenity_items %}
+                        <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted mt0">No facilities listed for this {{ kind }}.</p>
+            {% endif %}
+        </section>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-shield"/></svg> Good to know</h3>
+            <div class="amenities">
+                <span class="amen"><svg class="i"><use href="#i-clock"/></svg>Seats are held while you complete payment</span>
+                <span class="amen"><svg class="i"><use href="#i-shield"/></svg>Cancel anytime from My Bookings</span>
+            </div>
+        </section>
+
+        <section class="box">
+            <h3><svg class="i"><use href="#i-star"/></svg> Traveller reviews</h3>
+            {% if reviews.count %}
+                <div class="review-sum">
+                    <span class="big">{{ reviews.average }}</span>
+                    <span class="rating"><svg class="i"><use href="#i-star"/></svg> out of 5</span>
+                    <span class="muted">{{ reviews.count }} review{{ reviews.count|pluralize }}</span>
+                </div>
+                {% for review in reviews.latest %}
+                    <div class="review">
+                        <div class="who">{{ review.user.name|default:"Traveler" }} <span class="rating">{{ review.rating }} <svg class="i"><use href="#i-star"/></svg></span></div>
+                        <p>{{ review.comment }}</p>
+                    </div>
+                {% endfor %}
+                <p><a href="{% url 'reviews:item_reviews' kind item.id %}">See all reviews &rarr;</a></p>
+            {% else %}
+                <p class="muted mt0">No reviews yet. Book this {{ kind }} and be the first to review it.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <aside class="fare-box sticky">
+        <h3>Fare details</h3>
+        <div class="fare-row"><span>Base fare (per {{ unit }})</span><b>&#8377;{{ item.price|floatformat:"0g" }}</b></div>
+        <div class="fare-row"><span>Seats left</span><b>{{ seats_left }}</b></div>
+
+        {% if sold_out %}
+            <div class="alert error" style="margin-top:1rem"><svg class="i"><use href="#i-info"/></svg><div>This {{ kind }} is sold out.</div></div>
+            <a class="btn btn-ghost btn-lg btn-block" href="{% url search_url %}">Search again</a>
+        {% else %}
+            <form method="get" action="{% url book_url item.id %}">
+                <div class="field">
+                    <label for="pax">Number of {{ unit }}s</label>
+                    <input type="number" id="pax" name="passengers" min="1" max="{{ seats_left }}" value="{{ passengers }}" required
+                           data-fare-qty data-price="{{ item.price|stringformat:'s' }}">
+                    {% if too_many %}<p class="hint error-text">Only {{ seats_left }} seat{{ seats_left|pluralize }} left. Please reduce the number of {{ unit }}s.</p>{% endif %}
+                </div>
+                <div class="fare-total"><span>Total</span><b data-fare-total>&#8377;{{ total_price|floatformat:"0g" }}</b></div>
+                <button type="submit" class="btn-lg btn-block">Book now</button>
+                <p class="secure"><svg class="i"><use href="#i-shield"/></svg> You can review everything before paying</p>
+            </form>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

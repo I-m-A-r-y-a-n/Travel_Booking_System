@@ -3,6 +3,14 @@
 {% block title %}Booking Failed{% endblock %}
 
 {% block content %}
-<h2>Booking Not Completed</h2>
-<p>{{ reason }}</p>
+<div class="box notice">
+    <div class="ico"><svg class="i"><use href="#i-info"/></svg></div>
+    <h2>Booking not completed</h2>
+    <p class="muted">{{ reason }}</p>
+    {% if hotel %}<p><b>{{ hotel.name }}</b>{% if room %} &middot; {{ room.get_room_type_display }} room{% endif %}</p>{% endif %}
+    <div class="actions">
+        {% if hotel %}<a class="btn btn-ghost" href="{% url 'hotels:hotel_detail' hotel.id %}{% if stay_query %}?{{ stay_query }}{% endif %}">Back to hotel</a>{% endif %}
+        <a class="btn" href="{% url 'hotels:search_hotels' %}">Search hotels</a>
+    </div>
+</div>
 {% endblock %}

@@ -1,46 +1,112 @@
 {% extends 'base.html' %}
 
 {% block title %}Search Hotels{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Search Hotels</h2>
+<div class="search-layout">
+    <aside class="search-panel">
+        <h2 class="panel-title"><span class="ico"><svg class="i"><use href="#i-building"/></svg></span> Search Hotels</h2>
+        <form method="get" action="{% url 'hotels:search_hotels' %}" id="search-form">
+            <div class="field">
+                <label for="destination">Destination</label>
+                <input type="text" id="destination" name="destination" value="{{ destination }}" placeholder="Goa" list="location-list" autocomplete="off">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="check_in">Check-in</label>
+                    <input type="date" id="check_in" name="check_in" value="{{ check_in }}" min="{{ today|date:'Y-m-d' }}" data-stay-in>
+                </div>
+                <div class="field">
+                    <label for="check_out">Check-out</label>
+                    <input type="date" id="check_out" name="check_out" value="{{ check_out }}" min="{{ today|date:'Y-m-d' }}" data-stay-out>
+                </div>
+            </div>
+            <div class="field">
+                <label for="guests">Guests</label>
+                <input type="number" id="guests" name="guests" value="{{ guests }}" min="1" placeholder="2">
+            </div>
+            <button type="submit" class="btn-submit"><svg class="i"><use href="#i-search"/></svg> Search Hotels</button>
+            <datalist id="location-list">{% for place in locations %}<option value="{{ place }}">{% endfor %}</datalist>
+        </form>
+        <p class="form-note">Leave the dates empty to browse every hotel. Add dates to see what is free.</p>
+    </aside>
 
-<form method="GET" action="{% url 'hotels:search_hotels' %}">
-    <p>
-        <label>Destination</label><br>
-        <input type="text" name="destination" value="{{ destination }}">
-    </p>
-    <p>
-        <label>Guests</label><br>
-        <input type="number" name="guests" value="{{ guests }}" min="1">
-    </p>
-    <p>
-        <label>Check-in</label><br>
-        <input type="date" name="check_in" value="{{ check_in }}" min="{{ today }}">
-    </p>
-    <p>
-        <label>Check-out</label><br>
-        <input type="date" name="check_out" value="{{ check_out }}">
-    </p>
-    <button type="submit">Search</button>
-</form>
+    <section>
+        {% if searched or hotels %}
+            <div class="results-head">
+                <div>
+                    <h1 class="results-title">{% if destination %}Hotels in {{ destination }}{% else %}All hotels{% endif %}</h1>
+                    <p class="results-meta">
+                        {{ hotels|length }} propert{{ hotels|length|pluralize:"y,ies" }} found
+                        {% if nights %}&middot; {{ nights }} night{{ nights|pluralize }}{% endif %}
+                        {% if guests %}&middot; {{ guests }} guest{{ guests|pluralize }}{% endif %}
+                    </p>
+                </div>
+                <div class="sort">
+                    <label for="sort">Sort by</label>
+                    <select name="sort" id="sort" form="search-form" onchange="this.form.submit()">
+                        <option value="" {% if not sort %}selected{% endif %}>Recommended</option>
+                        <option value="price" {% if sort == 'price' %}selected{% endif %}>Price: low to high</option>
+                        <option value="rating" {% if sort == 'rating' %}selected{% endif %}>Rating: high to low</option>
+                    </select>
+                </div>
+            </div>
+        {% endif %}
 
-{% if rooms %}
-    <h3>Results</h3>
-    <ul class="result-list">
-    {% for room in rooms %}
-        <li>
-            <span>
-                <a href="{% url 'hotels:hotel_detail' room.hotel.id %}?check_in={{ check_in }}&check_out={{ check_out }}">{{ room.hotel.name }}</a> —
-                {{ room.hotel.location }} —
-                {{ room.get_room_type_display }} —
-                ₹{{ room.price_per_night }}/night —
-                Capacity: {{ room.capacity }}
-            </span>
-        </li>
-    {% endfor %}
-    </ul>
-{% elif request.GET %}
-    <p>No rooms found matching your search.</p>
-{% endif %}
+        {% if error %}
+            <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ error }}</div></div>
+        {% elif hotels %}
+            <div class="result-stack">
+            {% for h in hotels %}
+                <article class="rcard stay">
+                    <a class="thumb ph ph-{{ h.hotel.placeholder_variant }}" href="{% url 'hotels:hotel_detail' h.hotel.id %}{% if stay_query %}?{{ stay_query }}{% endif %}" aria-label="{{ h.hotel.name }}">
+                        {% if h.hotel.image_url %}<img src="{{ h.hotel.image_url }}" alt="{{ h.hotel.name }}" loading="lazy" onerror="this.remove()">{% endif %}
+                    </a>
+
+                    <div class="stay-body">
+                        <div class="stay-top">
+                            <h3><a href="{% url 'hotels:hotel_detail' h.hotel.id %}{% if stay_query %}?{{ stay_query }}{% endif %}">{{ h.hotel.name }}</a></h3>
+                            {% if h.hotel.rating %}<span class="rating"><svg class="i"><use href="#i-star"/></svg> {{ h.hotel.rating }}</span>{% endif %}
+                        </div>
+                        <p class="loc"><svg class="i"><use href="#i-pin"/></svg> {{ h.hotel.location }}</p>
+                        {% if h.hotel.description %}<p class="desc">{{ h.hotel.description|truncatechars:120 }}</p>{% endif %}
+                        <div class="amenities">
+                            {% for a in h.hotel.amenity_items|slice:":4" %}
+                                <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
+                            {% endfor %}
+                            {% if h.hotel.amenity_items|length > 4 %}
+                                <span class="amen more">+{{ h.hotel.amenity_items|slice:"4:"|length }} more</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="stay-side">
+                        <div>
+                            <span class="price-note" style="margin:0">Starting from</span>
+                            <div class="price">&#8377;{{ h.min_price|floatformat:"0g" }}</div>
+                            <span class="price-note">per night</span>
+                            {% if h.stay_total %}<span class="muted" style="display:block;font-size:.85rem;margin-bottom:.6rem">&#8377;{{ h.stay_total|floatformat:"0g" }} for {{ nights }} night{{ nights|pluralize }}</span>{% endif %}
+                            <span class="badge" style="margin-bottom:.8rem">{{ h.room_count }} room type{{ h.room_count|pluralize }}</span>
+                        </div>
+                        <a class="btn btn-sm" href="{% url 'hotels:hotel_detail' h.hotel.id %}{% if stay_query %}?{{ stay_query }}{% endif %}">View rooms</a>
+                    </div>
+                </article>
+            {% endfor %}
+            </div>
+        {% elif searched %}
+            <div class="empty">
+                <div class="ico"><svg class="i"><use href="#i-building"/></svg></div>
+                <h3>No hotels found</h3>
+                <p>No rooms match these filters. Try different dates, fewer guests or a broader destination.</p>
+            </div>
+        {% else %}
+            <div class="empty">
+                <div class="ico"><svg class="i"><use href="#i-building"/></svg></div>
+                <h3>Find your stay</h3>
+                <p>Enter a destination and your dates to see hotels with photos, facilities and room prices.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}
