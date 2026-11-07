@@ -16,16 +16,22 @@
         <input type="radio" name="tab" id="tab-h"><label for="tab-h">Hotels</label>
 
         <div class="panel p-f"><form class="srow" action="{% url 'flight_search' %}" method="get">
-          <div><label>From</label><input name="departure_city" placeholder="Bangalore" required></div>
-          <div><label>To</label><input name="destination_city" placeholder="Delhi" required></div>
+          <div class="route-row" data-route>
+            <div><label>From</label><input name="departure_city" placeholder="Bangalore" required></div>
+            <button type="button" class="swap" data-swap aria-label="Swap from and to"><svg class="i"><use href="#i-swap"/></svg></button>
+            <div><label>To</label><input name="destination_city" placeholder="Delhi" required></div>
+          </div>
           <div><label>Date</label><input type="date" name="date" required></div>
           <div><label>Passengers</label><input type="number" name="passengers" value="1" min="1" required></div>
           <button type="submit">Search</button>
         </form></div>
 
         <div class="panel p-b"><form class="srow" action="{% url 'bus_search' %}" method="get">
-          <div><label>From</label><input name="starting_location" placeholder="Chennai" required></div>
-          <div><label>To</label><input name="destination" placeholder="Bangalore" required></div>
+          <div class="route-row" data-route>
+            <div><label>From</label><input name="starting_location" placeholder="Chennai" required></div>
+            <button type="button" class="swap" data-swap aria-label="Swap from and to"><svg class="i"><use href="#i-swap"/></svg></button>
+            <div><label>To</label><input name="destination" placeholder="Bangalore" required></div>
+          </div>
           <div><label>Date</label><input type="date" name="date" required></div>
           <div><label>Passengers</label><input type="number" name="passengers" value="1" min="1" required></div>
           <button type="submit">Search</button>

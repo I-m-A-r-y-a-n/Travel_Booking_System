@@ -1,0 +1,58 @@
+<a class="back-link" href="{% if review %}{% url 'reviews:my_reviews' %}{% else %}{% url 'my_bookings' %}{% endif %}"><svg class="i"><use href="#i-arrow-left"/></svg> {% if review %}Back to my reviews{% else %}Back to my bookings{% endif %}</a>
+
+<div class="detail-grid">
+    <form method="post" class="box rv-form" data-review-form>
+        {% csrf_token %}
+        <h3><svg class="i"><use href="#i-star"/></svg> {% if review %}Edit your review{% else %}How was your {{ info.kind }}?{% endif %}</h3>
+
+        <div class="field">
+            <label>Your rating</label>
+            <div class="star-input" role="radiogroup" aria-label="Rating">
+                {% for n in '54321' %}
+                <input type="radio" name="rating" id="star{{ n }}" value="{{ n }}" {% if form.rating.value|stringformat:"s" == n %}checked{% endif %} required>
+                <label for="star{{ n }}" title="{{ n }} star{{ n|pluralize }}"><svg class="i"><use href="#i-star"/></svg></label>
+                {% endfor %}
+            </div>
+            <p class="star-label" data-star-label>Tap a star to rate</p>
+            {{ form.rating.errors }}
+        </div>
+
+        <div class="field">
+            <label for="id_comment">Your review</label>
+            <div class="chips" data-chips>
+                {% if info.kind == 'hotel' %}
+                    <button type="button">Clean rooms</button><button type="button">Great location</button><button type="button">Friendly staff</button><button type="button">Value for money</button>
+                {% elif info.kind == 'bus' %}
+                    <button type="button">Punctual</button><button type="button">Clean bus</button><button type="button">Comfortable seats</button><button type="button">Polite staff</button>
+                {% else %}
+                    <button type="button">On time</button><button type="button">Comfortable seats</button><button type="button">Friendly crew</button><button type="button">Value for money</button>
+                {% endif %}
+            </div>
+            {{ form.comment }}
+            <div class="counter"><span data-counter>0</span> characters</div>
+            {{ form.comment.errors }}
+        </div>
+
+        <button type="submit" class="btn-lg btn-block">{% if review %}Save changes{% else %}Submit review{% endif %}</button>
+    </form>
+
+    <aside class="fare-box sticky">
+        <h3>{% if review %}Reviewing{% else %}You are reviewing{% endif %}</h3>
+        <div class="sum-trip">
+            <span class="logo {{ info.kind }}">{{ info.logo_text }}</span>
+            <div><b>{{ info.title }}</b><small>{{ info.ref }}</small></div>
+        </div>
+        {% if info.kind == 'hotel' %}
+            <div class="fare-row"><span>Location</span><b>{{ info.origin }}</b></div>
+            <div class="fare-row"><span>Stay</span><b>{{ info.check_in|date:"d M" }} &ndash; {{ info.check_out|date:"d M Y" }}</b></div>
+        {% else %}
+            <div class="fare-row"><span>Route</span><b>{{ info.origin }} &rarr; {{ info.dest }}</b></div>
+            <div class="fare-row"><span>Travelled</span><b>{{ info.depart|date:"d M Y" }}</b></div>
+        {% endif %}
+        <ul class="tips">
+            <li><svg class="i"><use href="#i-check-circle"/></svg> Be honest and specific</li>
+            <li><svg class="i"><use href="#i-check-circle"/></svg> Mention what stood out</li>
+            <li><svg class="i"><use href="#i-check-circle"/></svg> Keep it respectful</li>
+        </ul>
+    </aside>
+</div>

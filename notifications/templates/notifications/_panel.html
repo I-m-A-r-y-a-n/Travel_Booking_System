@@ -1,0 +1,20 @@
+<div class="np-head">
+    <b>Notifications</b>
+    {% if unread %}<span class="np-count">{{ unread }} new</span>{% endif %}
+    {% if unread %}<button type="button" class="np-markall" data-mark-all data-url="{% url 'notifications:mark_all_read' %}">Mark all as read</button>{% endif %}
+</div>
+<div class="np-list">
+    {% for n in notifications %}
+    <form method="post" action="{% url 'notifications:open' n.id %}" class="np-item {% if not n.is_read %}unread{% endif %}">
+        {% csrf_token %}
+        <button type="submit">
+            <span class="np-ico {{ n.tone }}"><svg class="i"><use href="#i-{{ n.icon }}"/></svg></span>
+            <span class="np-text"><b>{{ n.title }}</b><span>{{ n.text }}</span><small>{{ n.created_at|timesince }} ago</small></span>
+            {% if not n.is_read %}<i class="np-dot"></i>{% endif %}
+        </button>
+    </form>
+    {% empty %}
+    <div class="np-empty"><svg class="i"><use href="#i-bell"/></svg><b>You're all caught up</b><span>New booking and payment updates will show up here.</span></div>
+    {% endfor %}
+</div>
+<a class="np-foot" href="{% url 'notifications:list' %}">View all notifications</a>

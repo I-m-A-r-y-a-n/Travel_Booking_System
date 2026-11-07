@@ -1,12 +1,97 @@
 {% extends 'base.html' %}
 
-{% block title %}Payment Result{% endblock %}
+{% block title %}{% if success %}Booking confirmed{% else %}Payment failed{% endif %}{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Payment {{ payment.status }}</h2>
-<p>Payment ID: {{ payment.id }}</p>
-<p>Booking ID: {{ booking.id }}</p>
-<p>Amount: ₹{{ payment.amount }}</p>
-<p>Method: {{ payment.get_payment_method_display }}</p>
-<p>Booking Status: {{ booking.get_status_display }}</p>
+<ol class="stepper">
+    <li class="done">Search</li>
+    <li class="done">Review</li>
+    <li class="done">Payment</li>
+    <li class="{% if success %}done{% else %}fail{% endif %}">{% if success %}Confirmation{% else %}Failed{% endif %}</li>
+</ol>
+
+{% if success %}
+<section class="result-banner {{ info.kind }}">
+    <div class="confetti"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="result-icon"><svg class="i"><use href="#i-check"/></svg></div>
+    <h1>Booking confirmed</h1>
+    <p>Payment received. Your {{ info.kind_label|lower }} is booked and your ticket is ready.</p>
+    <span class="result-ref"><svg class="i"><use href="#i-ticket"/></svg> {{ info.ref }}</span>
+</section>
+
+<div class="ticket-wrap">
+    <div class="ticket">
+        <div class="ticket-main">
+            <div class="ticket-head">
+                <div class="mini">
+                    <span class="logo lg {{ info.kind }}">{{ info.logo_text }}</span>
+                    <div class="carrier"><b>{{ info.title }}</b><span class="muted">{{ info.number }}{% if info.tag and info.kind != 'hotel' %} &middot; {{ info.tag }}{% endif %}</span></div>
+                </div>
+                <span class="badge confirmed">{{ info.status_label }}</span>
+            </div>
+
+            {% if info.kind == 'hotel' %}
+            <div class="journey">
+                <div class="jpoint"><small>Check-in</small><b>{{ info.check_in|date:"d M Y" }}</b><span class="d">{{ info.check_in|date:"l" }}</span></div>
+                <div class="jmid"><b>{{ info.nights }} night{{ info.nights|pluralize }}</b><div class="line"><svg class="i"><use href="#i-moon"/></svg></div><span>{{ info.origin }}</span></div>
+                <div class="jpoint end"><small>Check-out</small><b>{{ info.check_out|date:"d M Y" }}</b><span class="d">{{ info.check_out|date:"l" }}</span></div>
+            </div>
+            {% else %}
+            <div class="journey">
+                <div class="jpoint"><small>Departure</small><b>{{ info.origin }}</b><span class="t">{{ info.depart|time:"H:i" }}</span><span class="d">{{ info.depart|date:"D, d M Y" }}</span></div>
+                <div class="jmid"><b>{{ info.duration }}</b><div class="line"><svg class="i {% if info.kind == 'flight' %}plane{% endif %}"><use href="#i-{{ info.icon }}"/></svg></div><span>{{ info.tag }}</span></div>
+                <div class="jpoint end"><small>Arrival</small><b>{{ info.dest }}</b><span class="t">{{ info.arrive|time:"H:i" }}{% if info.day_offset %} <span class="badge warn">+{{ info.day_offset }} day</span>{% endif %}</span><span class="d">{{ info.arrive|date:"D, d M Y" }}</span></div>
+            </div>
+            {% endif %}
+
+            <div class="facts">
+                <div class="fact"><small><svg class="i"><use href="#i-user"/></svg> Booked by</small><b>{{ request.user.name|default:request.user.email }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-mail"/></svg> Email</small><b>{{ request.user.email }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> {% if info.kind == 'hotel' %}Guests{% elif info.kind == 'bus' %}Seats{% else %}Passengers{% endif %}</small><b>{{ info.passengers }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Booked on</small><b>{{ info.booked_on|date:"d M Y" }}</b></div>
+            </div>
+        </div>
+
+        <aside class="ticket-stub">
+            <div class="stub-row"><small>Booking ref</small><b>{{ info.ref }}</b></div>
+            <div class="stub-row"><small>Payment</small><b>{{ payment.get_payment_method_display }} &middot; #{{ payment.id }}</b></div>
+            <div class="stub-row"><small>Paid on</small><b>{{ payment.created_at|date:"d M Y, H:i" }}</b></div>
+            <div class="stub-row total"><small>Amount paid</small><b>&#8377;{{ payment.amount|floatformat:"0g" }}</b></div>
+        </aside>
+    </div>
+
+    <div class="ticket-actions">
+        <a class="btn btn-lg" href="{% url 'download_ticket' booking.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket (PDF)</a>
+        <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">My bookings</a>
+        <a class="btn btn-ghost btn-lg" href="{% url 'home' %}">Book another trip</a>
+    </div>
+</div>
+
+<section class="box next-box">
+    <h3>Before you travel</h3>
+    <ul>
+        <li><svg class="i"><use href="#i-check-circle"/></svg> Carry a valid photo ID and show your ticket at the start of your journey.</li>
+        <li><svg class="i"><use href="#i-check-circle"/></svg> Your ticket is always available under My bookings.</li>
+        <li><svg class="i"><use href="#i-info"/></svg> Wayfare is an academic project, so this ticket is not valid for real travel.</li>
+    </ul>
+</section>
+
+{% else %}
+<section class="result-banner fail">
+    <div class="result-icon"><svg class="i"><use href="#i-x-circle"/></svg></div>
+    <h1>Payment failed</h1>
+    <p>We could not complete your payment, so your booking was not confirmed. No money was charged.</p>
+</section>
+<section class="box fail-card">
+    <h3>What happened</h3>
+    <div class="fare-row"><span>Booking</span><b>{{ info.ref }} &middot; {{ info.title }}</b></div>
+    <div class="fare-row"><span>Method</span><b>{{ payment.get_payment_method_display }}</b></div>
+    <div class="fare-row"><span>Amount</span><b>&#8377;{{ payment.amount|floatformat:"0g" }}</b></div>
+    <div class="ticket-actions">
+        <a class="btn btn-lg" href="{% url 'home' %}">Search again</a>
+        <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">My bookings</a>
+    </div>
+</section>
+{% endif %}
 {% endblock %}

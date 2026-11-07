@@ -5,10 +5,14 @@
 
   // Swap the From / To text fields.
   document.querySelectorAll('[data-swap]').forEach(function (button) {
+    button.addEventListener('animationend', function () { button.classList.remove('spin'); });
     button.addEventListener('click', function () {
-      var scope = button.closest('.route-fields');
+      button.classList.remove('spin');
+      void button.offsetWidth;
+      button.classList.add('spin');
+      var scope = button.closest('.route-fields, [data-route]');
       if (!scope) return;
-      var fields = scope.querySelectorAll('input[type=text]');
+      var fields = scope.querySelectorAll('input[type=text], input:not([type])');
       if (fields.length === 2) {
         var tmp = fields[0].value;
         fields[0].value = fields[1].value;
@@ -31,6 +35,20 @@
     qty.addEventListener('input', update);
     qty.addEventListener('change', update);
   }
+
+  // Forms marked data-once: disable the button after the first submit (no double payments).
+  document.querySelectorAll('form[data-once]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      var button = form.querySelector('button[type=submit]');
+      if (!button) return;
+      var label = button.getAttribute('data-busy');
+      // Disable on the next tick so the form still submits normally.
+      setTimeout(function () {
+        button.disabled = true;
+        if (label) button.textContent = label;
+      }, 0);
+    });
+  });
 
   // Check-out can't be on or before check-in.
   document.querySelectorAll('[data-stay-in]').forEach(function (checkIn) {
@@ -57,4 +75,32 @@
     checkIn.addEventListener('change', sync);
     sync();
   });
+
+  // Review form: star caption, quick-phrase chips and a character counter.
+  var reviewForm = document.querySelector('[data-review-form]');
+  if (reviewForm) {
+    var captions = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very good', 5: 'Excellent'};
+    var caption = reviewForm.querySelector('[data-star-label]');
+    var showCaption = function () {
+      var picked = reviewForm.querySelector('input[name=rating]:checked');
+      caption.textContent = picked ? captions[picked.value] : 'Tap a star to rate';
+    };
+    reviewForm.querySelectorAll('input[name=rating]').forEach(function (r) { r.addEventListener('change', showCaption); });
+    showCaption();
+
+    var comment = reviewForm.querySelector('textarea');
+    var counter = reviewForm.querySelector('[data-counter]');
+    var count = function () { counter.textContent = comment.value.length; };
+    comment.addEventListener('input', count);
+    count();
+
+    reviewForm.querySelectorAll('[data-chips] button').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var text = chip.textContent + '. ';
+        comment.value = comment.value && !/\s$/.test(comment.value) ? comment.value + ' ' + text : comment.value + text;
+        comment.focus();
+        count();
+      });
+    });
+  }
 })();

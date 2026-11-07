@@ -7,5 +7,8 @@ class ReviewForm(forms.ModelForm):
         model = Review
         fields = ['rating', 'comment']
         widgets = {
-            'comment': forms.Textarea(attrs={'rows': 4}),
+            'comment': forms.Textarea(attrs={
+                'rows': 6,
+                'placeholder': 'What did you like? Was anything not great? Your experience helps other travellers.',
+            }),
         }

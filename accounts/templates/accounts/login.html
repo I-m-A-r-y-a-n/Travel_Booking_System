@@ -1,15 +1,41 @@
 {% extends 'base.html' %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Log in{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Login</h2>
-{% if error %}
-    <p class="error-text">{{ error }}</p>
-{% endif %}
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Login</button>
-</form>
+<div class="auth">
+    <aside class="auth-side">
+        <h2>Welcome back</h2>
+        <p>Pick up your trip right where you left off.</p>
+        <ul>
+            <li><svg class="i"><use href="#i-plane"/></svg> Flights, buses and hotels in one place</li>
+            <li><svg class="i"><use href="#i-ticket"/></svg> Download your e-ticket any time</li>
+            <li><svg class="i"><use href="#i-shield"/></svg> Simple, secure booking</li>
+        </ul>
+    </aside>
+    <section class="auth-form">
+        <h1>Log in</h1>
+        <p class="lead">{% if next %}Please log in to continue with your booking.{% else %}Enter your details to access your account.{% endif %}</p>
+
+        {% if error %}<div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ error }}</div></div>{% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            <div class="field">
+                <label for="{{ form.email.id_for_label }}">Email</label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+            <div class="field">
+                <label for="{{ form.password.id_for_label }}">Password</label>
+                {{ form.password }}
+                {{ form.password.errors }}
+            </div>
+            <button type="submit" class="btn-lg btn-block">Log in</button>
+        </form>
+        <p class="auth-alt">New to Wayfare? <a href="{% url 'register' %}{% if next %}?next={{ next|urlencode:'' }}{% endif %}">Create an account</a></p>
+    </section>
+</div>
 {% endblock %}

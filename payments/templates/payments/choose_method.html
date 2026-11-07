@@ -1,16 +1,54 @@
 {% extends 'base.html' %}
 
-{% block title %}Choose Payment Method{% endblock %}
+{% block title %}Payment{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Complete Your Payment</h2>
-<p>Booking #{{ booking.id }} — Amount: ₹{{ booking.total_price }}</p>
+<ol class="stepper">
+    <li class="done">Search</li>
+    <li class="done">Review</li>
+    <li class="active">Payment</li>
+    <li>Confirmation</li>
+</ol>
 
-<form method="POST" action="{% url 'payments:process_payment' booking.id %}">
-    {% csrf_token %}
-    <p><label><input type="radio" name="method" value="CARD" checked> Card</label></p>
-    <p><label><input type="radio" name="method" value="UPI"> UPI</label></p>
-    <p><label><input type="radio" name="method" value="NETBANKING"> Net Banking</label></p>
-    <button type="submit">Pay Now</button>
-</form>
+<div class="detail-grid">
+    <form method="post" action="{% url 'payments:process_payment' booking.id %}" data-once class="box">
+        {% csrf_token %}
+        <h3><svg class="i"><use href="#i-lock"/></svg> Choose a payment method</h3>
+        <div class="pm-list">
+            {% for m in methods %}
+            <label class="pm">
+                <input type="radio" name="method" value="{{ m.value }}" {% if m.value == selected %}checked{% endif %}>
+                <span class="pm-body">
+                    <span class="pm-ico"><svg class="i"><use href="#i-{{ m.icon }}"/></svg></span>
+                    <span class="pm-text"><b>{{ m.label }}</b><small>{{ m.hint }}</small></span>
+                    <span class="pm-radio"></span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+        <div class="sim-note"><svg class="i"><use href="#i-info"/></svg><span>This is a simulated payment for a college project. No real money is charged and no card details are needed.</span></div>
+        <p></p>
+        <button type="submit" class="btn-lg btn-block pay-btn" data-busy="Processing&hellip;"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ booking.total_price|floatformat:"0g" }}</button>
+    </form>
+
+    <aside class="fare-box sticky">
+        <h3>Booking summary</h3>
+        <div class="sum-trip">
+            <span class="logo {{ info.kind }}">{{ info.logo_text }}</span>
+            <div><b>{{ info.title }}</b><small>{{ info.number }}{% if info.tag and info.kind != 'hotel' %} &middot; {{ info.tag }}{% endif %}</small></div>
+        </div>
+        {% if info.kind == 'hotel' %}
+            <div class="fare-row"><span>Location</span><b>{{ info.origin }}</b></div>
+            <div class="fare-row"><span>Check-in</span><b>{{ info.check_in|date:"d M Y" }}</b></div>
+            <div class="fare-row"><span>Check-out</span><b>{{ info.check_out|date:"d M Y" }}</b></div>
+        {% else %}
+            <div class="fare-row"><span>Route</span><b>{{ info.origin }} &rarr; {{ info.dest }}</b></div>
+            <div class="fare-row"><span>Departs</span><b>{{ info.depart|date:"d M, H:i" }}</b></div>
+        {% endif %}
+        <div class="fare-row"><span>&#8377;{{ info.unit_price|floatformat:"0g" }} &times; {{ info.qty_text }}</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>
+        <div class="fare-total"><span>Total payable</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>
+        <p class="secure"><svg class="i"><use href="#i-shield"/></svg> Secure checkout</p>
+    </aside>
+</div>
 {% endblock %}

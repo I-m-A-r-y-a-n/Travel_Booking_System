@@ -1,0 +1,38 @@
+<article class="brow {{ b.info.kind }} {{ b.status }}">
+    <span class="bico"><svg class="i"><use href="#i-{{ b.info.icon }}"/></svg></span>
+    <div>
+        <h3><a class="stretch" href="{% url 'booking_detail' b.id %}">{{ b.info.title }}</a> <span class="badge {{ b.status }}">{{ b.info.status_label }}</span></h3>
+        <div class="sub">
+            {% if b.info.kind == 'hotel' %}{{ b.info.origin }}{% if b.info.number %} &middot; {{ b.info.number }}{% endif %}
+            {% else %}{{ b.info.origin }} <svg class="i"><use href="#i-arrow-right"/></svg> {{ b.info.dest }}{% endif %}
+        </div>
+        <div class="meta">
+            <span><svg class="i"><use href="#i-ticket"/></svg>{{ b.info.ref }}</span>
+            {% if b.info.kind == 'hotel' %}
+                {% if b.info.check_in %}<span><svg class="i"><use href="#i-calendar"/></svg>{{ b.info.check_in|date:"d M" }} &ndash; {{ b.info.check_out|date:"d M Y" }}</span>{% endif %}
+                <span><svg class="i"><use href="#i-users"/></svg>{{ b.info.passengers }} guest{{ b.info.passengers|pluralize }}</span>
+            {% else %}
+                {% if b.info.depart %}<span><svg class="i"><use href="#i-calendar"/></svg>{{ b.info.depart|date:"D, d M Y" }}, {{ b.info.depart|time:"H:i" }}</span>{% endif %}
+                <span><svg class="i"><use href="#i-users"/></svg>{{ b.info.qty_text }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="end"><div class="amt">&#8377;{{ b.total_price|floatformat:"0g" }}</div></div>
+    {% if actions %}
+    <div class="acts">
+        <a class="btn btn-ghost btn-sm" href="{% url 'booking_detail' b.id %}">View details</a>
+        {% if b.status == 'confirmed' %}
+            <a class="btn btn-sm" href="{% url 'download_ticket' b.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket</a>
+            {% if b.review %}
+                <a class="btn btn-ghost btn-sm" href="{% url 'reviews:my_reviews' %}">Reviewed</a>
+            {% else %}
+                <a class="btn btn-ghost btn-sm" href="{% url 'reviews:write_review' b.id %}">Write review</a>
+            {% endif %}
+            <a class="btn btn-ghost btn-sm" href="{% url 'cancel_booking' b.id %}">Cancel</a>
+        {% elif b.status == 'pending' %}
+            <a class="btn btn-sm" href="{% url 'payments:choose_payment_method' b.id %}">Pay now</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'cancel_booking' b.id %}">Cancel</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</article>

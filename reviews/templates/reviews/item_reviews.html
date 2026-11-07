@@ -1,27 +1,41 @@
 {% extends 'base.html' %}
 
-{% block title %}Reviews{% endblock %}
+{% block title %}Reviews for {{ title }}{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Reviews for {{ item }}</h2>
-
-{% if average %}
-    <p>Average rating: <strong>{{ average }} / 5</strong> ({{ reviews|length }} review{{ reviews|length|pluralize }})</p>
-{% endif %}
+<a class="back-link" href="javascript:history.back()"><svg class="i"><use href="#i-arrow-left"/></svg> Back</a>
+<div class="sec-head" style="margin-top:0"><h2>Reviews for {{ title }}</h2></div>
 
 {% if reviews %}
-    <ul class="result-list">
-    {% for review in reviews %}
-        <li>
-            <span>
-                <strong>{{ review.user.name|default:"Traveler" }}</strong>
-                — {{ review.rating }}/5 — {{ review.created_at|date:"d M Y" }}
-                <br>{{ review.comment }}
-            </span>
-        </li>
-    {% endfor %}
-    </ul>
+<section class="box rv-summary">
+    <div class="rv-score">
+        <b>{{ average }}</b>
+        <div class="stars">{% for on in average_stars %}<svg class="i star {% if on %}on{% endif %}"><use href="#i-star"/></svg>{% endfor %}</div>
+        <small>{{ count }} review{{ count|pluralize }}</small>
+    </div>
+    <div class="rv-bars">
+        {% for row in breakdown %}
+        <div class="bar-row"><span>{{ row.stars }} <svg class="i"><use href="#i-star"/></svg></span><div class="bar"><i style="width:{{ row.percent }}%"></i></div><em>{{ row.count }}</em></div>
+        {% endfor %}
+    </div>
+</section>
+
+{% for review in reviews %}
+<article class="rv-item">
+    <span class="avatar">{{ review.initial }}</span>
+    <div>
+        <div class="rv-top"><b>{{ review.display_name }}</b><span class="rv-date">{{ review.created_at|date:"d M Y" }}</span></div>
+        <div class="stars">{% for on in review.star_list %}<svg class="i star {% if on %}on{% endif %}"><use href="#i-star"/></svg>{% endfor %}</div>
+        <p class="rv-text">{{ review.comment }}</p>
+    </div>
+</article>
+{% endfor %}
 {% else %}
-    <p>No reviews yet.</p>
+<section class="box state-box">
+    <span class="state-ico"><svg class="i"><use href="#i-star"/></svg></span>
+    <h2>No reviews yet</h2>
+    <p class="muted">Be the first to review after your trip.</p>
+</section>
 {% endif %}
 {% endblock %}

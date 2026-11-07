@@ -1,28 +1,20 @@
 {% extends 'base.html' %}
 
-{% block title %}Write a Review{% endblock %}
+{% block title %}Write a review{% endblock %}
+{% block main_class %}wide{% endblock %}
 
 {% block content %}
-<h2>Write a Review</h2>
-
-{% if not_allowed %}
-    <p>You can only review bookings that are confirmed.</p>
-    <p><a href="{% url 'my_bookings' %}">Back to My Bookings</a></p>
-{% elif already_reviewed %}
-    <p>You have already reviewed this booking.</p>
-    <p><a href="{% url 'reviews:my_reviews' %}">See my reviews</a></p>
+{% if not_allowed or already_reviewed %}
+<section class="box state-box">
+    <span class="state-ico"><svg class="i"><use href="#i-{% if already_reviewed %}check-circle{% else %}info{% endif %}"/></svg></span>
+    <h2>{% if already_reviewed %}You have already reviewed this booking{% else %}Reviews open after confirmation{% endif %}</h2>
+    <p class="muted">{% if already_reviewed %}Thanks for sharing your experience. You can edit it any time.{% else %}You can only review bookings that are confirmed.{% endif %}</p>
+    <div class="ticket-actions">
+        {% if already_reviewed %}<a class="btn btn-lg" href="{% url 'reviews:my_reviews' %}">See my reviews</a>{% endif %}
+        <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">Back to my bookings</a>
+    </div>
+</section>
 {% else %}
-    <p>
-        Booking #{{ booking.id }} —
-        {% if booking.hotel %}{{ booking.hotel.name }}
-        {% elif booking.flight %}{{ booking.flight }}
-        {% elif booking.bus %}{{ booking.bus }}
-        {% endif %}
-    </p>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Submit Review</button>
-    </form>
+    {% include 'reviews/_form.html' %}
 {% endif %}
 {% endblock %}
