@@ -7,8 +7,8 @@
 {% if not_allowed or already_reviewed %}
 <section class="box state-box">
     <span class="state-ico"><svg class="i"><use href="#i-{% if already_reviewed %}check-circle{% else %}info{% endif %}"/></svg></span>
-    <h2>{% if already_reviewed %}You have already reviewed this booking{% else %}Reviews open after confirmation{% endif %}</h2>
-    <p class="muted">{% if already_reviewed %}Thanks for sharing your experience. You can edit it any time.{% else %}You can only review bookings that are confirmed.{% endif %}</p>
+    <h2>{% if already_reviewed %}You have already reviewed this booking{% else %}Reviews open after your trip{% endif %}</h2>
+    <p class="muted">{% if already_reviewed %}Thanks for sharing your experience. You can edit it any time.{% else %}You can review a booking once it is confirmed and your trip or stay is over.{% endif %}</p>
     <div class="ticket-actions">
         {% if already_reviewed %}<a class="btn btn-lg" href="{% url 'reviews:my_reviews' %}">See my reviews</a>{% endif %}
         <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">Back to my bookings</a>

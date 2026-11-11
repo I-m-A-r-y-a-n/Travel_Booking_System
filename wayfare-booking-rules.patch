@@ -1,0 +1,1312 @@
+diff --git a/bookings/migrations/0005_booking_cancelled_at_booking_refund_amount.py b/bookings/migrations/0005_booking_cancelled_at_booking_refund_amount.py
+new file mode 100644
+index 0000000..f88ab4a
+--- /dev/null
++++ b/bookings/migrations/0005_booking_cancelled_at_booking_refund_amount.py
+@@ -0,0 +1,21 @@
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++
++    dependencies = [
++        ('bookings', '0004_booking_passengers'),
++    ]
++
++    operations = [
++        migrations.AddField(
++            model_name='booking',
++            name='cancelled_at',
++            field=models.DateTimeField(blank=True, null=True),
++        ),
++        migrations.AddField(
++            model_name='booking',
++            name='refund_amount',
++            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
++        ),
++    ]
+diff --git a/bookings/models.py b/bookings/models.py
+index ec6a194..5f78c3d 100644
+--- a/bookings/models.py
++++ b/bookings/models.py
+@@ -32,6 +32,8 @@ class Booking(models.Model):
+     booking_date = models.DateTimeField(auto_now_add=True)
+     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+     total_price = models.DecimalField(max_digits=10, decimal_places=2)
++    cancelled_at = models.DateTimeField(null=True, blank=True)
++    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+ 
+     def __str__(self):
+         return f"Booking #{self.id} - {self.user} - {self.booking_type}"
+diff --git a/bookings/rules.py b/bookings/rules.py
+new file mode 100644
+index 0000000..1f61c8d
+--- /dev/null
++++ b/bookings/rules.py
+@@ -0,0 +1,176 @@
++"""Booking rules in one place, so every view applies the same logic.
++
++These follow the conventions of the big Indian booking sites (MakeMyTrip, ixigo, redBus):
++unpaid bookings only hold seats for a short time, trips close for booking shortly before
++departure, a booking has a passenger limit, and cancellations refund a share of the fare
++that shrinks as the trip gets closer. Change the numbers below to tune any rule.
++"""
++from datetime import date, datetime, time, timedelta
++from decimal import Decimal, ROUND_HALF_UP
++
++from django.db.models import Q
++from django.utils import timezone
++
++# ---- seat / room holds
++HOLD_MINUTES = 15  # an unpaid booking keeps its seats for this long
++
++# ---- limits
++MAX_PER_BOOKING = {'flight': 9, 'bus': 6}   # passengers / seats in one booking
++MAX_STAY_NIGHTS = 30
++MAX_ADVANCE_DAYS = 365                      # how far ahead anything can be booked
++
++# ---- booking closes this long before departure (check-in for hotels is date based)
++BOOKING_CLOSES_BEFORE = {'flight': timedelta(hours=2), 'bus': timedelta(hours=1)}
++HOTEL_CHECKIN_TIME = time(12, 0)            # used for hotel refund / completion maths
++HOTEL_CHECKOUT_TIME = time(11, 0)
++
++# ---- refunds: (hours before start, percent of the fare refunded), best tier first.
++# Below the last tier the booking can no longer be cancelled.
++REFUND_TIERS = {
++    'flight': [(72, 90), (24, 75), (4, 50)],
++    'bus': [(24, 90), (12, 75), (4, 50)],
++    'hotel': [(48, 100), (24, 50), (0, 0)],
++}
++POLICY_LABELS = {
++    'flight': ['More than 72 hours before departure: 90% refund', '24 to 72 hours: 75% refund',
++               '4 to 24 hours: 50% refund', 'Less than 4 hours: cannot be cancelled'],
++    'bus': ['More than 24 hours before departure: 90% refund', '12 to 24 hours: 75% refund',
++            '4 to 12 hours: 50% refund', 'Less than 4 hours: cannot be cancelled'],
++    'hotel': ['More than 48 hours before check-in: full refund', '24 to 48 hours: 50% refund',
++              'Less than 24 hours: no refund'],
++}
++
++
++# --------------------------------------------------------------------------- holds
++def hold_cutoff(now=None):
++    return (now or timezone.now()) - timedelta(minutes=HOLD_MINUTES)
++
++
++def holding_q(now=None):
++    """Bookings that currently take up seats/rooms: confirmed, or pending and still on hold."""
++    return Q(status='confirmed') | Q(status='pending', booking_date__gte=hold_cutoff(now))
++
++
++def hold_expires_at(booking):
++    return booking.booking_date + timedelta(minutes=HOLD_MINUTES)
++
++
++def is_hold_expired(booking, now=None):
++    return booking.status == 'pending' and hold_expires_at(booking) <= (now or timezone.now())
++
++
++def expire_stale(user=None, now=None):
++    """Cancel unpaid bookings whose hold ran out. Uses update(), so no 'cancelled'
++    notification is sent for a hold that simply lapsed."""
++    from .models import Booking
++    qs = Booking.objects.filter(status='pending', booking_date__lt=hold_cutoff(now))
++    if user is not None:
++        qs = qs.filter(user=user)
++    return qs.update(status='cancelled')
++
++
++# --------------------------------------------------------------------------- start times
++def _aware(value):
++    return timezone.make_aware(value) if timezone.is_naive(value) else value
++
++
++def start_datetime(booking):
++    """When the trip or stay starts, as an aware datetime (None if unknown)."""
++    if booking.booking_type == 'flight' and booking.flight:
++        return booking.flight.departure_time
++    if booking.booking_type == 'bus' and booking.bus:
++        return booking.bus.departure_time
++    if booking.booking_type == 'hotel' and booking.check_in_date:
++        return _aware(datetime.combine(booking.check_in_date, HOTEL_CHECKIN_TIME))
++    return None
++
++
++def end_datetime(booking):
++    """When the trip or stay is over."""
++    if booking.booking_type == 'flight' and booking.flight:
++        return booking.flight.arrival_time
++    if booking.booking_type == 'bus' and booking.bus:
++        return booking.bus.arrival_time
++    if booking.booking_type == 'hotel' and booking.check_out_date:
++        return _aware(datetime.combine(booking.check_out_date, HOTEL_CHECKOUT_TIME))
++    return None
++
++
++def trip_completed(booking, now=None):
++    end = end_datetime(booking)
++    return end is not None and end <= (now or timezone.now())
++
++
++# --------------------------------------------------------------------------- can it be booked
++def booking_closed_reason(item, kind, now=None):
++    """Why a flight/bus can't be booked any more, or '' when it can."""
++    now = now or timezone.now()
++    departure = item.departure_time
++    if departure <= now:
++        return 'This departure has already left.'
++    if departure - now < BOOKING_CLOSES_BEFORE[kind]:
++        hours = int(BOOKING_CLOSES_BEFORE[kind].total_seconds() // 3600)
++        return f'Booking closed. Tickets can be booked up to {hours} hour{"s" if hours != 1 else ""} before departure.'
++    if departure.date() > timezone.localdate() + timedelta(days=MAX_ADVANCE_DAYS):
++        return 'Bookings for this date are not open yet.'
++    return ''
++
++
++def max_per_booking(kind):
++    return MAX_PER_BOOKING[kind]
++
++
++def stay_error(check_in, check_out, today=None):
++    """Message for an unusable hotel date pair, or None."""
++    today = today or timezone.localdate()
++    if check_out <= check_in:
++        return 'Check-out date must be after check-in date.'
++    if check_in < today:
++        return 'Check-in date cannot be in the past.'
++    if check_in > today + timedelta(days=MAX_ADVANCE_DAYS):
++        return f'Hotels can be booked up to {MAX_ADVANCE_DAYS} days in advance.'
++    if (check_out - check_in).days > MAX_STAY_NIGHTS:
++        return f'You can book at most {MAX_STAY_NIGHTS} nights at a time.'
++    return None
++
++
++def search_date_error(value, today=None):
++    """Message for a flight/bus search date that is in the past or too far ahead."""
++    today = today or timezone.localdate()
++    if value < today:
++        return 'Please choose today or a future date.'
++    if value > today + timedelta(days=MAX_ADVANCE_DAYS):
++        return f'Please choose a date within the next {MAX_ADVANCE_DAYS} days.'
++    return None
++
++
++# --------------------------------------------------------------------------- cancellation
++def _money(value):
++    return Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
++
++
++def refund_for(booking, now=None):
++    """What cancelling this booking would do.
++
++    Returns {'allowed': bool, 'percent': int, 'amount': Decimal, 'reason': str}.
++    Unpaid (pending) bookings can always be cancelled and have nothing to refund.
++    """
++    now = now or timezone.now()
++    if booking.status == 'cancelled':
++        return {'allowed': False, 'percent': 0, 'amount': Decimal('0.00'), 'reason': 'This booking is already cancelled.'}
++    start = start_datetime(booking)
++    if booking.status == 'pending':
++        return {'allowed': True, 'percent': 0, 'amount': Decimal('0.00'), 'reason': ''}
++    if start is None:
++        return {'allowed': True, 'percent': 0, 'amount': Decimal('0.00'), 'reason': ''}
++    hours = (start - now).total_seconds() / 3600
++    if hours <= 0:
++        return {'allowed': False, 'percent': 0, 'amount': Decimal('0.00'),
++                'reason': 'This trip has already started, so it can no longer be cancelled.'}
++    for tier_hours, percent in REFUND_TIERS[booking.booking_type]:
++        if hours >= tier_hours:
++            if booking.booking_type == 'hotel' or percent > 0:
++                return {'allowed': True, 'percent': percent,
++                        'amount': _money(booking.total_price * percent / 100), 'reason': ''}
++    return {'allowed': False, 'percent': 0, 'amount': Decimal('0.00'),
++            'reason': 'Cancellation is closed because the trip starts in less than 4 hours.'}
+diff --git a/bookings/templates/bookings/booking_detail.html b/bookings/templates/bookings/booking_detail.html
+index 5a8f7d4..4a35e82 100644
+--- a/bookings/templates/bookings/booking_detail.html
++++ b/bookings/templates/bookings/booking_detail.html
+@@ -23,6 +23,13 @@
+     </div>
+ </section>
+ 
++{% if hold_expires %}
++<div class="banner-note"><svg class="i"><use href="#i-clock"/></svg><span>Payment pending. Your {% if kind == 'hotel' %}room is{% else %}seats are{% endif %} held until {{ hold_expires|time:"H:i" }}.</span><a class="btn btn-sm" href="{% url 'payments:choose_payment_method' booking.id %}">Pay now</a></div>
++{% endif %}
++{% if booking.status == 'cancelled' and booking.refund_amount %}
++<div class="banner-note ok"><svg class="i"><use href="#i-check-circle"/></svg><span>Cancelled on {{ booking.cancelled_at|date:"d M Y, H:i" }}. Refund of <b>&#8377;{{ booking.refund_amount|floatformat:"0g" }}</b> is on its way to your original payment method.</span></div>
++{% endif %}
++
+ <ol class="timeline">
+     {% for step in timeline %}
+     <li class="{{ step.state }}">
+@@ -115,8 +122,8 @@
+         <div class="side-actions">
+             {% if booking.status == 'confirmed' %}
+                 <a class="btn btn-lg btn-block pay-btn" href="{% url 'download_ticket' booking.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket</a>
+-                {% if not review %}<a class="btn btn-ghost btn-block" href="{% url 'reviews:write_review' booking.id %}">Write a review</a>{% endif %}
+-                <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
++                {% if not review and can_review %}<a class="btn btn-ghost btn-block" href="{% url 'reviews:write_review' booking.id %}">Write a review</a>{% endif %}
++                {% if refund.allowed %}<a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>{% endif %}
+             {% elif booking.status == 'pending' %}
+                 <a class="btn btn-lg btn-block pay-btn" href="{% url 'payments:choose_payment_method' booking.id %}"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ info.total|floatformat:"0g" }}</a>
+                 <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
+diff --git a/bookings/templates/bookings/cancel_booking.html b/bookings/templates/bookings/cancel_booking.html
+index 9fa3ad4..a8ec8d4 100644
+--- a/bookings/templates/bookings/cancel_booking.html
++++ b/bookings/templates/bookings/cancel_booking.html
+@@ -3,15 +3,33 @@
+ {% block title %}Cancel booking{% endblock %}
+ 
+ {% block content %}
+-<a class="back-link" href="{% url 'my_bookings' %}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to my bookings</a>
+-<section class="box" style="max-width:560px;margin:1rem auto">
++<a class="back-link" href="{% url 'booking_detail' booking.id %}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to booking</a>
++<section class="box" style="max-width:600px;margin:1rem auto">
+     <h3><svg class="i"><use href="#i-x-circle"/></svg> Cancel this booking?</h3>
+-    <p class="muted">Booking #{{ booking.id }} &middot; {{ booking.get_booking_type_display }} &middot; &#8377;{{ booking.total_price|floatformat:"0g" }} &middot; {{ booking.get_status_display }}</p>
+-    <p>This will cancel the booking. This cannot be undone.</p>
+-    <form method="post" data-once>
+-        {% csrf_token %}
+-        <button type="submit" class="btn-lg" data-busy="Cancelling&hellip;">Yes, cancel booking</button>
+-        <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">Keep booking</a>
+-    </form>
++    <div class="sum-trip">
++        <span class="logo {{ info.kind }}">{{ info.logo_text }}</span>
++        <div><b>{{ info.title }}</b><small>{{ info.ref }} &middot; {% if info.kind == 'hotel' %}{{ info.origin }}{% else %}{{ info.origin }} &rarr; {{ info.dest }}{% endif %}</small></div>
++    </div>
++
++    {% if not refund.allowed %}
++        <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ refund.reason }}</div></div>
++        <a class="btn btn-ghost btn-lg" href="{% url 'booking_detail' booking.id %}">Back to booking</a>
++    {% else %}
++        {% if paid %}
++        <div class="refund-box">
++            <div><small>You paid</small><b>&#8377;{{ booking.total_price|floatformat:"0g" }}</b></div>
++            <div><small>Refund ({{ refund.percent }}%)</small><b class="ok">&#8377;{{ refund.amount|floatformat:"0g" }}</b></div>
++        </div>
++        <h4 class="policy-title">Cancellation policy</h4>
++        <ul class="policy">{% for line in policy %}<li><svg class="i"><use href="#i-check-circle"/></svg>{{ line }}</li>{% endfor %}</ul>
++        {% else %}
++        <p>You haven't paid for this booking yet, so nothing will be charged.</p>
++        {% endif %}
++        <form method="post" data-once>
++            {% csrf_token %}
++            <button type="submit" class="btn-lg" data-busy="Cancelling&hellip;">Yes, cancel booking</button>
++            <a class="btn btn-ghost btn-lg" href="{% url 'booking_detail' booking.id %}">Keep booking</a>
++        </form>
++    {% endif %}
+ </section>
+ {% endblock %}
+diff --git a/bookings/templates/bookings/confirm_booking.html b/bookings/templates/bookings/confirm_booking.html
+index 16cd428..5ddfc56 100644
+--- a/bookings/templates/bookings/confirm_booking.html
++++ b/bookings/templates/bookings/confirm_booking.html
+@@ -51,7 +51,10 @@
+     <aside class="fare-box sticky">
+         <h3>Fare summary</h3>
+ 
+-        {% if sold_out %}
++        {% if closed %}
++            <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ closed }}</div></div>
++            <a class="btn btn-ghost btn-lg btn-block" href="{% url detail_url item.id %}">Back to details</a>
++        {% elif sold_out %}
+             <div class="alert error">
+                 <svg class="i"><use href="#i-info"/></svg>
+                 <div>
+@@ -72,9 +75,10 @@
+                 {% csrf_token %}
+                 <div class="field">
+                     <label for="pax">Number of {{ unit }}s</label>
+-                    <input type="number" id="pax" name="passengers" min="1" max="{{ seats_available }}" value="{{ passengers }}" required
++                    <input type="number" id="pax" name="passengers" min="1" max="{{ max_pax }}" value="{{ passengers }}" required
+                            data-fare-qty data-price="{{ item.price|stringformat:'s' }}">
+                 </div>
++                {% if error %}<p class="hint error-text">{{ error }}</p>{% endif %}
+                 <div class="fare-row"><span>Base fare</span><b>&#8377;{{ item.price|floatformat:"0g" }} &times; <span data-fare-count>{{ passengers }}</span></b></div>
+                 <div class="fare-total"><span>Total payable</span><b data-fare-total>&#8377;{{ total_price|floatformat:"0g" }}</b></div>
+                 <button type="submit" class="btn-lg btn-block">Confirm &amp; continue to payment</button>
+diff --git a/bookings/tests.py b/bookings/tests.py
+index 7ce503c..f934a3d 100644
+--- a/bookings/tests.py
++++ b/bookings/tests.py
+@@ -1,3 +1,245 @@
++"""Tests for the booking rules. Run them with:  python manage.py test bookings"""
++from datetime import timedelta
++from decimal import Decimal
++from unittest import mock
++
+ from django.test import TestCase
++from django.urls import reverse
++from django.utils import timezone
++
++from accounts.models import User
++from flights.models import Flight
++from hotels.models import Hotel, Room
++from payments.models import Payment
++
++from . import rules
++from .models import Booking
++from .utils import seats_available
++
++
++def make_user(n):
++    return User.objects.create_user(
++        username=f'user{n}@example.com', email=f'user{n}@example.com', password='pass12345',
++        name=f'User {n}', mobile_number=f'90000000{n:02d}',
++    )
++
++
++def make_flight(hours_ahead=72, seats=10, number='AI100', price=1000):
++    departure = timezone.now() + timedelta(hours=hours_ahead)
++    return Flight.objects.create(
++        airline_name='Air Test', flight_number=number, departure_city='Bangalore',
++        destination_city='Delhi', departure_time=departure,
++        arrival_time=departure + timedelta(hours=3), total_seats=seats, price=Decimal(price),
++    )
++
++
++def make_room(total_rooms=1, capacity=2):
++    hotel = Hotel.objects.create(name='Test Inn', location='Goa')
++    return Room.objects.create(
++        hotel=hotel, room_type='STANDARD', price_per_night=Decimal('2000'),
++        capacity=capacity, total_rooms=total_rooms, available_rooms=total_rooms,
++    )
++
++
++def make_booking(user, flight, status='confirmed', passengers=1):
++    return Booking.objects.create(
++        user=user, booking_type='flight', flight=flight, passengers=passengers,
++        total_price=flight.price * passengers, status=status,
++    )
++
++
++class SeatTests(TestCase):
++    def setUp(self):
++        self.a, self.b = make_user(1), make_user(2)
++        self.flight = make_flight(seats=10)
++
++    def book(self, user, passengers):
++        self.client.force_login(user)
++        return self.client.post(reverse('book_flight', args=[self.flight.id]), {'passengers': passengers})
++
++    def test_seats_fill_up_and_sold_out(self):
++        self.assertEqual(self.book(self.a, 6).status_code, 302)
++        self.assertEqual(seats_available(self.flight, 'flight'), 4)
++        self.assertEqual(self.book(self.b, 4).status_code, 302)
++        self.assertEqual(seats_available(self.flight, 'flight'), 0)
++        # nothing left for a third person: the page re-renders instead of creating a booking
++        self.assertEqual(self.book(make_user(3), 1).status_code, 200)
++        self.assertEqual(Booking.objects.count(), 2)
++
++    def test_unpaid_hold_expires_and_frees_seats(self):
++        booking = make_booking(self.a, self.flight, status='pending', passengers=10)
++        self.assertEqual(seats_available(self.flight, 'flight'), 0)
++        Booking.objects.filter(pk=booking.pk).update(
++            booking_date=timezone.now() - timedelta(minutes=rules.HOLD_MINUTES + 1))
++        self.assertEqual(seats_available(self.flight, 'flight'), 10)
++
++    def test_cancelled_booking_frees_seats(self):
++        make_booking(self.a, self.flight, status='cancelled', passengers=10)
++        self.assertEqual(seats_available(self.flight, 'flight'), 10)
++
++    def test_double_submit_reuses_the_same_booking(self):
++        self.book(self.a, 2)
++        self.book(self.a, 3)
++        self.assertEqual(Booking.objects.count(), 1)
++        self.assertEqual(Booking.objects.get().passengers, 3)
++
++    def test_passenger_limit(self):
++        big = make_flight(seats=100, number='AI200')
++        self.client.force_login(self.a)
++        response = self.client.post(reverse('book_flight', args=[big.id]), {'passengers': 10})
++        self.assertEqual(response.status_code, 200)
++        self.assertEqual(Booking.objects.count(), 0)
++
++
++class DateRuleTests(TestCase):
++    def setUp(self):
++        self.user = make_user(1)
++        self.client.force_login(self.user)
++
++    def test_cannot_book_a_departed_flight(self):
++        flight = make_flight(hours_ahead=-3, number='AI300')
++        response = self.client.post(reverse('book_flight', args=[flight.id]), {'passengers': 1})
++        self.assertEqual(response.status_code, 200)
++        self.assertEqual(Booking.objects.count(), 0)
++
++    def test_booking_closes_before_departure(self):
++        flight = make_flight(hours_ahead=1, number='AI301')
++        self.client.post(reverse('book_flight', args=[flight.id]), {'passengers': 1})
++        self.assertEqual(Booking.objects.count(), 0)
++
++    def test_search_rejects_past_dates(self):
++        yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
++        response = self.client.get(reverse('flight_search'), {
++            'departure_city': 'Bangalore', 'destination_city': 'Delhi', 'date': yesterday, 'passengers': 1})
++        self.assertFalse(response.context['searched'])
++        self.assertIn('date', response.context['form'].errors)
++
++    def test_departed_flights_are_hidden_from_results(self):
++        flight = make_flight(hours_ahead=-2, number='AI302')
++        today = timezone.localdate().isoformat()
++        response = self.client.get(reverse('flight_search'), {
++            'departure_city': 'Bangalore', 'destination_city': 'Delhi', 'date': today, 'passengers': 1})
++        self.assertNotIn(flight, response.context['items'])
++
++
++class HotelTests(TestCase):
++    def setUp(self):
++        self.a, self.b = make_user(1), make_user(2)
++        self.room = make_room(total_rooms=1)
++        self.check_in = timezone.localdate() + timedelta(days=10)
++
++    def book(self, user, nights=2, guests=2):
++        self.client.force_login(user)
++        return self.client.post(reverse('hotels:book_room', args=[self.room.id]), {
++            'check_in': self.check_in.isoformat(),
++            'check_out': (self.check_in + timedelta(days=nights)).isoformat(),
++            'guests': guests,
++        })
++
++    def test_last_room_goes_to_the_first_person(self):
++        self.assertEqual(self.book(self.a).status_code, 302)
++        self.assertEqual(self.book(self.b).status_code, 200)  # "No rooms available"
++        self.assertEqual(Booking.objects.count(), 1)
++
++    def test_overlap_blocked_but_other_dates_fine(self):
++        self.book(self.a, nights=3)
++        self.check_in += timedelta(days=3)  # starts the day the first stay ends
++        self.assertEqual(self.book(self.b).status_code, 302)
++
++    def test_stay_limits(self):
++        self.book(self.a, nights=rules.MAX_STAY_NIGHTS + 1)
++        self.assertEqual(Booking.objects.count(), 0)
++
++    def test_too_many_guests(self):
++        self.book(self.a, guests=5)
++        self.assertEqual(Booking.objects.count(), 0)
++
++
++class PaymentTests(TestCase):
++    def setUp(self):
++        self.user = make_user(1)
++        self.client.force_login(self.user)
++        self.flight = make_flight()
++        self.booking = make_booking(self.user, self.flight, status='pending', passengers=2)
++        self.url = reverse('payments:process_payment', args=[self.booking.id])
++
++    def test_failed_payment_keeps_the_hold_and_retry_works(self):
++        with mock.patch('payments.views.random.random', return_value=0.99):
++            self.client.post(self.url, {'method': 'UPI'})
++        self.booking.refresh_from_db()
++        self.assertEqual(self.booking.status, 'pending')
++        self.assertEqual(Payment.objects.get().status, 'FAILED')
++        with mock.patch('payments.views.random.random', return_value=0.0):
++            self.client.post(self.url, {'method': 'UPI'})
++        self.booking.refresh_from_db()
++        self.assertEqual(self.booking.status, 'confirmed')
++
++    def test_expired_booking_cannot_be_paid(self):
++        Booking.objects.filter(pk=self.booking.pk).update(
++            booking_date=timezone.now() - timedelta(minutes=rules.HOLD_MINUTES + 1))
++        self.client.post(self.url, {'method': 'UPI'})
++        self.booking.refresh_from_db()
++        self.assertEqual(self.booking.status, 'cancelled')
++        self.assertEqual(Payment.objects.count(), 0)
++
++    def test_confirmed_booking_cannot_be_paid_twice(self):
++        with mock.patch('payments.views.random.random', return_value=0.0):
++            self.client.post(self.url, {'method': 'CARD'})
++            self.client.post(self.url, {'method': 'CARD'})
++        self.assertEqual(Payment.objects.count(), 1)
++
++
++class CancellationTests(TestCase):
++    def setUp(self):
++        self.user = make_user(1)
++        self.client.force_login(self.user)
++
++    def test_refund_tiers(self):
++        for hours, percent in ((100, 90), (50, 75), (10, 50)):
++            flight = make_flight(hours_ahead=hours, number=f'AI{hours}', price=1000)
++            result = rules.refund_for(make_booking(self.user, flight))
++            self.assertTrue(result['allowed'])
++            self.assertEqual(result['percent'], percent)
++            self.assertEqual(result['amount'], Decimal(10 * percent))
++
++    def test_cannot_cancel_close_to_or_after_departure(self):
++        for hours in (3, -1):
++            flight = make_flight(hours_ahead=hours, number=f'AX{hours + 5}')
++            self.assertFalse(rules.refund_for(make_booking(self.user, flight))['allowed'])
++
++    def test_cancel_records_refund(self):
++        booking = make_booking(self.user, make_flight(hours_ahead=100), passengers=2)
++        self.client.post(reverse('cancel_booking', args=[booking.id]))
++        booking.refresh_from_db()
++        self.assertEqual(booking.status, 'cancelled')
++        self.assertEqual(booking.refund_amount, Decimal('1800.00'))
++        self.assertIsNotNone(booking.cancelled_at)
++
++    def test_unpaid_booking_cancels_with_no_refund(self):
++        booking = make_booking(self.user, make_flight(hours_ahead=1, number='AI900'), status='pending')
++        self.client.post(reverse('cancel_booking', args=[booking.id]))
++        booking.refresh_from_db()
++        self.assertEqual(booking.status, 'cancelled')
++        self.assertEqual(booking.refund_amount, 0)
++
++    def test_departed_trip_cannot_be_cancelled(self):
++        booking = make_booking(self.user, make_flight(hours_ahead=-5, number='AI901'))
++        self.client.post(reverse('cancel_booking', args=[booking.id]))
++        booking.refresh_from_db()
++        self.assertEqual(booking.status, 'confirmed')
++
++
++class ReviewRuleTests(TestCase):
++    def setUp(self):
++        self.user = make_user(1)
++        self.client.force_login(self.user)
++
++    def test_cannot_review_before_the_trip_is_over(self):
++        booking = make_booking(self.user, make_flight(hours_ahead=48))
++        response = self.client.get(reverse('reviews:write_review', args=[booking.id]))
++        self.assertTrue(response.context['not_allowed'])
+ 
+-# Create your tests here.
++    def test_can_review_after_the_trip(self):
++        booking = make_booking(self.user, make_flight(hours_ahead=-48, number='AI777'))
++        response = self.client.get(reverse('reviews:write_review', args=[booking.id]))
++        self.assertNotIn('not_allowed', response.context)
+diff --git a/bookings/utils.py b/bookings/utils.py
+index 68ffa83..9de6e1c 100644
+--- a/bookings/utils.py
++++ b/bookings/utils.py
+@@ -1,15 +1,17 @@
+ from django.db.models import Sum
+ 
+ from .models import Booking
+-
+-HOLDING_STATUSES = ['pending', 'confirmed']
++from .rules import holding_q
+ 
+ 
+ def seats_available(item, field):
+     """Seats still free on a flight/bus. `field` is 'flight' or 'bus'.
+-    Pending bookings hold their seats, same as before."""
++
++    Confirmed bookings and unpaid bookings that are still inside their hold window
++    (see bookings.rules.HOLD_MINUTES) take up seats; cancelled and lapsed ones do not.
++    """
+     booked = (
+-        Booking.objects.filter(**{field: item}, status__in=HOLDING_STATUSES)
++        Booking.objects.filter(holding_q(), **{field: item})
+         .aggregate(total=Sum('passengers'))['total']
+         or 0
+     )
+diff --git a/bookings/views.py b/bookings/views.py
+index 15ad01d..da0f051 100644
+--- a/bookings/views.py
++++ b/bookings/views.py
+@@ -1,11 +1,17 @@
+ from django.contrib import messages
++from django.db import transaction
+ from django.contrib.auth.decorators import login_required
+ from django.http import HttpResponse
+ from django.shortcuts import render, redirect, get_object_or_404
++from django.utils import timezone
+ from flights.models import Flight
+ from buses.models import Bus
+ from travelbooking.helpers import parse_int
+ from .models import Booking
++from .rules import (
++    booking_closed_reason, expire_stale, hold_cutoff, hold_expires_at,
++    max_per_booking, POLICY_LABELS, refund_for, trip_completed,
++)
+ from .ticket_pdf import build_ticket_pdf
+ from .tickets import paid_payment, ticket_info
+ from .utils import seats_available
+@@ -15,22 +21,22 @@ def _book_trip(request, item, kind):
+     """Shared flow for flights and buses (`kind` is 'flight' or 'bus').
+ 
+     GET  -> review page with the trip details and fare summary.
+-    POST -> create the pending booking and go to payment.
++    POST -> create the pending booking (holds the seats) and go to payment.
+     """
++    expire_stale(request.user)
++    closed = booking_closed_reason(item, kind)
++    limit = max_per_booking(kind)
+     seats_left = seats_available(item, kind)
+     source = request.POST if request.method == 'POST' else request.GET
+-    passengers = parse_int(source.get('passengers'), default=1, minimum=1)
+-
+-    if request.method == 'POST' and passengers <= seats_left:
+-        booking = Booking.objects.create(
+-            user=request.user,
+-            booking_type=kind,
+-            passengers=passengers,
+-            total_price=item.price * passengers,
+-            status='pending',
+-            **{kind: item},
+-        )
+-        return redirect('payments:choose_payment_method', booking_id=booking.id)
++    requested = parse_int(source.get('passengers'), default=1, minimum=1)
++    passengers = min(requested, limit)
++    error = f'You can book at most {limit} {"passengers" if kind == "flight" else "seats"} at a time.' if requested > limit else ''
++
++    if request.method == 'POST' and not closed and not error:
++        booking = _create_hold(request.user, item, kind, passengers)
++        if booking:
++            return redirect('payments:choose_payment_method', booking_id=booking.id)
++        seats_left = seats_available(item, kind)  # someone else got there first
+ 
+     return render(request, 'bookings/confirm_booking.html', {
+         'item': item,
+@@ -39,12 +45,39 @@ def _book_trip(request, item, kind):
+         'unit': 'passenger' if kind == 'flight' else 'seat',
+         'detail_url': f'{kind}_detail',
+         'seats_available': seats_left,
++        'max_pax': max(min(seats_left, limit), 1),
+         'passengers': passengers,
+         'total_price': item.price * passengers,
++        'closed': closed,
++        'error': error,
+         'sold_out': passengers > seats_left,
+     })
+ 
+ 
++def _create_hold(user, item, kind, passengers):
++    """Create (or update) the user's pending booking, checking seats under a lock so two
++    people can't both take the last seats. Returns None when there aren't enough."""
++    with transaction.atomic():
++        locked = type(item).objects.select_for_update().get(pk=item.pk)
++        existing = (
++            Booking.objects.filter(user=user, status='pending', booking_type=kind,
++                                   booking_date__gte=hold_cutoff(), **{kind: locked})
++            .order_by('-booking_date').first()
++        )
++        free = seats_available(locked, kind) + (existing.passengers if existing else 0)
++        if passengers > free:
++            return None
++        if existing:  # same user clicked again: reuse their booking instead of holding twice
++            existing.passengers = passengers
++            existing.total_price = locked.price * passengers
++            existing.save(update_fields=['passengers', 'total_price'])
++            return existing
++        return Booking.objects.create(
++            user=user, booking_type=kind, passengers=passengers,
++            total_price=locked.price * passengers, status='pending', **{kind: locked},
++        )
++
++
+ @login_required
+ def book_flight_view(request, flight_id):
+     flight = get_object_or_404(Flight, id=flight_id)
+@@ -59,6 +92,7 @@ def book_bus_view(request, bus_id):
+ 
+ @login_required
+ def my_bookings_view(request):
++    expire_stale(request.user)
+     bookings = list(
+         Booking.objects.filter(user=request.user)
+         .select_related('flight', 'bus', 'hotel', 'room', 'review')
+@@ -66,6 +100,8 @@ def my_bookings_view(request):
+     )
+     for booking in bookings:
+         booking.info = ticket_info(booking)
++        booking.can_cancel = refund_for(booking)['allowed']
++        booking.can_review = booking.status == 'confirmed' and trip_completed(booking)
+     return render(request, 'bookings/my_bookings.html', {'bookings': bookings})
+ 
+ 
+@@ -94,6 +130,7 @@ def _timeline(booking, payments):
+ @login_required
+ def booking_detail_view(request, booking_id):
+     """Everything about one booking: trip, facilities, payment, actions."""
++    expire_stale(request.user)  # first, so a lapsed hold shows as cancelled
+     booking = get_object_or_404(
+         Booking.objects.select_related('flight', 'bus', 'hotel', 'room', 'review'),
+         id=booking_id, user=request.user,
+@@ -113,6 +150,10 @@ def booking_detail_view(request, booking_id):
+         'paid': paid_payment(booking),
+         'timeline': _timeline(booking, payments),
+         'review': review,
++        'hold_expires': hold_expires_at(booking) if booking.status == 'pending' else None,
++        'refund': refund_for(booking) if booking.status != 'cancelled' else None,
++        'completed': trip_completed(booking),
++        'can_review': booking.status == 'confirmed' and trip_completed(booking),
+     })
+ 
+ 
+@@ -136,11 +177,30 @@ def download_ticket_view(request, booking_id):
+ 
+ @login_required
+ def cancel_booking_view(request, booking_id):
+-    booking = get_object_or_404(Booking, id=booking_id, user=request.user)
++    booking = get_object_or_404(
++        Booking.objects.select_related('flight', 'bus', 'hotel', 'room'),
++        id=booking_id, user=request.user,
++    )
++    refund = refund_for(booking)
+ 
+     if request.method == 'POST':
++        if not refund['allowed']:
++            messages.error(request, refund['reason'])
++            return redirect('booking_detail', booking_id=booking.id)
+         booking.status = 'cancelled'
++        booking.cancelled_at = timezone.now()
++        booking.refund_amount = refund['amount']
+         booking.save()
++        if refund['amount']:
++            messages.success(request, f'Booking cancelled. \u20b9{refund["amount"]:,.0f} will be refunded to your original payment method.')
++        else:
++            messages.success(request, 'Booking cancelled.')
+         return redirect('my_bookings')
+ 
+-    return render(request, 'bookings/cancel_booking.html', {'booking': booking})
++    return render(request, 'bookings/cancel_booking.html', {
++        'booking': booking,
++        'info': ticket_info(booking),
++        'refund': refund,
++        'policy': POLICY_LABELS[booking.booking_type],
++        'paid': booking.status == 'confirmed',
++    })
+diff --git a/buses/forms.py b/buses/forms.py
+index 6e69e90..a4fd665 100644
+--- a/buses/forms.py
++++ b/buses/forms.py
+@@ -1,4 +1,7 @@
+ from django import forms
++from django.utils import timezone
++
++from bookings.rules import search_date_error
+ 
+ SORT_CHOICES = [
+     ('', 'Earliest departure'),
+@@ -21,3 +24,15 @@ class BusSearchForm(forms.Form):
+     date = forms.DateField(label='Travel date', widget=forms.DateInput(attrs={'type': 'date'}))
+     passengers = forms.IntegerField(min_value=1, initial=1, label='Passengers')
+     sort = forms.ChoiceField(choices=SORT_CHOICES, required=False, label='Sort by')
++
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        # Browsers then grey out past days in the date picker (the server checks again).
++        self.fields['date'].widget.attrs['min'] = timezone.localdate().isoformat()
++
++    def clean_date(self):
++        value = self.cleaned_data['date']
++        problem = search_date_error(value)
++        if problem:
++            raise forms.ValidationError(problem)
++        return value
+diff --git a/buses/views.py b/buses/views.py
+index 758842e..635ff9d 100644
+--- a/buses/views.py
++++ b/buses/views.py
+@@ -1,5 +1,7 @@
+ from django.shortcuts import get_object_or_404, render
++from django.utils import timezone
+ 
++from bookings.rules import booking_closed_reason, max_per_booking
+ from bookings.utils import seats_available
+ from reviews.utils import review_summary
+ from travelbooking.helpers import parse_int
+@@ -34,10 +36,12 @@ def bus_search_view(request):
+                 starting_location__icontains=data['starting_location'],
+                 destination__icontains=data['destination'],
+                 departure_time__date=data['date'],
++                departure_time__gt=timezone.now(),
+             ).order_by('departure_time')
+         )
+         for bus in buses:
+             bus.seats_left = seats_available(bus, 'bus')
++            bus.closed_reason = booking_closed_reason(bus, 'bus')
+ 
+         sorter = SORTERS.get(data['sort'])
+         if sorter:
+@@ -63,7 +67,8 @@ def bus_search_view(request):
+ def bus_detail_view(request, bus_id):
+     bus = get_object_or_404(Bus, id=bus_id)
+     seats_left = seats_available(bus, 'bus')
+-    passengers = parse_int(request.GET.get('passengers'), default=1, minimum=1)
++    limit = max_per_booking('bus')
++    passengers = min(parse_int(request.GET.get('passengers'), default=1, minimum=1), limit)
+ 
+     return render(request, 'trips/detail.html', {
+         'kind': 'bus',
+@@ -74,6 +79,8 @@ def bus_detail_view(request, bus_id):
+         'passengers': passengers,
+         'total_price': bus.price * passengers,
+         'sold_out': seats_left < 1,
++        'closed': booking_closed_reason(bus, 'bus'),
++        'max_pax': max(min(seats_left, limit), 1),
+         'too_many': passengers > seats_left,
+         'reviews': review_summary('bus', bus),
+         'search_url': 'bus_search',
+diff --git a/flights/forms.py b/flights/forms.py
+index d0a17da..ec3e1dc 100644
+--- a/flights/forms.py
++++ b/flights/forms.py
+@@ -1,4 +1,7 @@
+ from django import forms
++from django.utils import timezone
++
++from bookings.rules import search_date_error
+ 
+ SORT_CHOICES = [
+     ('', 'Earliest departure'),
+@@ -21,3 +24,15 @@ class FlightSearchForm(forms.Form):
+     date = forms.DateField(label='Departure date', widget=forms.DateInput(attrs={'type': 'date'}))
+     passengers = forms.IntegerField(min_value=1, initial=1, label='Passengers')
+     sort = forms.ChoiceField(choices=SORT_CHOICES, required=False, label='Sort by')
++
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        # Browsers then grey out past days in the date picker (the server checks again).
++        self.fields['date'].widget.attrs['min'] = timezone.localdate().isoformat()
++
++    def clean_date(self):
++        value = self.cleaned_data['date']
++        problem = search_date_error(value)
++        if problem:
++            raise forms.ValidationError(problem)
++        return value
+diff --git a/flights/views.py b/flights/views.py
+index 8e5ab0f..9779baa 100644
+--- a/flights/views.py
++++ b/flights/views.py
+@@ -1,5 +1,7 @@
+ from django.shortcuts import get_object_or_404, render
++from django.utils import timezone
+ 
++from bookings.rules import booking_closed_reason, max_per_booking
+ from bookings.utils import seats_available
+ from reviews.utils import review_summary
+ from travelbooking.helpers import parse_int
+@@ -34,10 +36,12 @@ def flight_search_view(request):
+                 departure_city__icontains=data['departure_city'],
+                 destination_city__icontains=data['destination_city'],
+                 departure_time__date=data['date'],
++                departure_time__gt=timezone.now(),
+             ).order_by('departure_time')
+         )
+         for flight in flights:
+             flight.seats_left = seats_available(flight, 'flight')
++            flight.closed_reason = booking_closed_reason(flight, 'flight')
+ 
+         sorter = SORTERS.get(data['sort'])
+         if sorter:
+@@ -63,7 +67,8 @@ def flight_search_view(request):
+ def flight_detail_view(request, flight_id):
+     flight = get_object_or_404(Flight, id=flight_id)
+     seats_left = seats_available(flight, 'flight')
+-    passengers = parse_int(request.GET.get('passengers'), default=1, minimum=1)
++    limit = max_per_booking('flight')
++    passengers = min(parse_int(request.GET.get('passengers'), default=1, minimum=1), limit)
+ 
+     return render(request, 'trips/detail.html', {
+         'kind': 'flight',
+@@ -74,6 +79,8 @@ def flight_detail_view(request, flight_id):
+         'passengers': passengers,
+         'total_price': flight.price * passengers,
+         'sold_out': seats_left < 1,
++        'closed': booking_closed_reason(flight, 'flight'),
++        'max_pax': max(min(seats_left, limit), 1),
+         'too_many': passengers > seats_left,
+         'reviews': review_summary('flight', flight),
+         'search_url': 'flight_search',
+diff --git a/hotels/views.py b/hotels/views.py
+index 3dfb23b..3b11485 100644
+--- a/hotels/views.py
++++ b/hotels/views.py
+@@ -2,9 +2,11 @@ from datetime import date
+ from urllib.parse import urlencode
+ 
+ from django.contrib.auth.decorators import login_required
++from django.db import transaction
+ from django.shortcuts import get_object_or_404, redirect, render
+ 
+ from bookings.models import Booking
++from bookings.rules import expire_stale, holding_q, stay_error
+ from reviews.utils import review_summary
+ from travelbooking.helpers import parse_date, parse_int
+ 
+@@ -13,22 +15,19 @@ from .models import Hotel, Room
+ 
+ def _stay_error(check_in, check_out):
+     """Message for an unusable date pair, or None when it is fine."""
+-    if check_out <= check_in:
+-        return 'Check-out date must be after check-in date.'
+-    if check_in < date.today():
+-        return 'Check-in date cannot be in the past.'
+-    return None
++    return stay_error(check_in, check_out)
+ 
+ 
+ def _rooms_left(room, check_in, check_out):
+-    """How many rooms of this type are still free for the given dates."""
++    """How many rooms of this type are still free for the given dates.
++    Confirmed bookings and unpaid ones still on hold take a room."""
+     overlapping = Booking.objects.filter(
++        holding_q(),
+         room=room,
+-        status__in=['pending', 'confirmed'],
+         check_in_date__lt=check_out,
+         check_out_date__gt=check_in,
+     ).count()
+-    return room.total_rooms - overlapping
++    return max(room.total_rooms - overlapping, 0)
+ 
+ 
+ def _stay_query(check_in, check_out, guests):
+@@ -139,6 +138,7 @@ def hotel_detail(request, hotel_id):
+ @login_required
+ def book_room(request, room_id):
+     """GET shows the review page; POST creates the pending booking."""
++    expire_stale(request.user)
+     room = get_object_or_404(Room.objects.select_related('hotel'), id=room_id)
+     source = request.POST if request.method == 'POST' else request.GET
+ 
+@@ -172,17 +172,34 @@ def book_room(request, room_id):
+     total_price = room.price_per_night * nights
+ 
+     if request.method == 'POST':
+-        booking = Booking.objects.create(
+-            user=request.user,
+-            booking_type='hotel',
+-            hotel=room.hotel,
+-            room=room,
+-            check_in_date=check_in_date,
+-            check_out_date=check_out_date,
+-            passengers=guests,
+-            total_price=total_price,
+-            status='pending',
+-        )
++        with transaction.atomic():
++            # Lock the room row so two people can't take the last room at the same moment.
++            locked = Room.objects.select_for_update().get(pk=room.pk)
++            existing = (
++                Booking.objects.filter(
++                    holding_q(), user=request.user, status='pending', room=locked,
++                    check_in_date=check_in_date, check_out_date=check_out_date,
++                ).first()
++            )
++            if existing is None and _rooms_left(locked, check_in_date, check_out_date) <= 0:
++                return failed('No rooms available for the selected dates.')
++            if existing:  # same user clicked again: reuse their booking instead of holding twice
++                existing.passengers = guests
++                existing.total_price = total_price
++                existing.save(update_fields=['passengers', 'total_price'])
++                booking = existing
++            else:
++                booking = Booking.objects.create(
++                    user=request.user,
++                    booking_type='hotel',
++                    hotel=room.hotel,
++                    room=room,
++                    check_in_date=check_in_date,
++                    check_out_date=check_out_date,
++                    passengers=guests,
++                    total_price=total_price,
++                    status='pending',
++                )
+         return redirect('payments:choose_payment_method', booking_id=booking.id)
+ 
+     return render(request, 'hotels/confirm_booking.html', {
+diff --git a/payments/templates/payments/choose_method.html b/payments/templates/payments/choose_method.html
+index cd58fb3..6a56fb6 100644
+--- a/payments/templates/payments/choose_method.html
++++ b/payments/templates/payments/choose_method.html
+@@ -11,6 +11,11 @@
+     <li>Confirmation</li>
+ </ol>
+ 
++<div class="hold-bar" data-hold-seconds="{{ seconds_left }}" data-hold-url="{% url 'my_bookings' %}">
++    <svg class="i"><use href="#i-clock"/></svg>
++    <span>Complete your payment within <b data-hold-clock>{{ hold_minutes }}:00</b> to keep your {% if info.kind == 'hotel' %}room{% else %}seats{% endif %}.</span>
++</div>
++
+ <div class="detail-grid">
+     <form method="post" action="{% url 'payments:process_payment' booking.id %}" data-once class="box">
+         {% csrf_token %}
+diff --git a/payments/templates/payments/payment_result.html b/payments/templates/payments/payment_result.html
+index 135e7b0..878e796 100644
+--- a/payments/templates/payments/payment_result.html
++++ b/payments/templates/payments/payment_result.html
+@@ -81,7 +81,7 @@
+ <section class="result-banner fail">
+     <div class="result-icon"><svg class="i"><use href="#i-x-circle"/></svg></div>
+     <h1>Payment failed</h1>
+-    <p>We could not complete your payment, so your booking was not confirmed. No money was charged.</p>
++    <p>We could not complete your payment, so your booking is not confirmed yet. No money was charged.{% if can_retry %} Your {% if info.kind == 'hotel' %}room is{% else %}seats are{% endif %} still held for a few minutes, so you can try again.{% endif %}</p>
+ </section>
+ <section class="box fail-card">
+     <h3>What happened</h3>
+@@ -89,7 +89,7 @@
+     <div class="fare-row"><span>Method</span><b>{{ payment.get_payment_method_display }}</b></div>
+     <div class="fare-row"><span>Amount</span><b>&#8377;{{ payment.amount|floatformat:"0g" }}</b></div>
+     <div class="ticket-actions">
+-        <a class="btn btn-lg" href="{% url 'home' %}">Search again</a>
++        {% if can_retry %}<a class="btn btn-lg" href="{% url 'payments:choose_payment_method' booking.id %}">Try payment again</a>{% else %}<a class="btn btn-lg" href="{% url 'home' %}">Search again</a>{% endif %}
+         <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">My bookings</a>
+     </div>
+ </section>
+diff --git a/payments/views.py b/payments/views.py
+index 942604b..a178936 100644
+--- a/payments/views.py
++++ b/payments/views.py
+@@ -1,9 +1,14 @@
+ import random
+ 
++from django.contrib import messages
++from django.db import transaction
++
+ from django.contrib.auth.decorators import login_required
+ from django.shortcuts import get_object_or_404, redirect, render
++from django.utils import timezone
+ 
+ from bookings.models import Booking
++from bookings.rules import HOLD_MINUTES, expire_stale, hold_expires_at, is_hold_expired
+ from bookings.tickets import ticket_info
+ from .models import Payment
+ 
+@@ -20,47 +25,65 @@ VALID_METHODS = {m['value'] for m in METHODS}
+ 
+ @login_required
+ def choose_payment_method(request, booking_id):
++    expire_stale(request.user)
+     booking = get_object_or_404(
+         Booking.objects.select_related('flight', 'bus', 'hotel', 'room'),
+         id=booking_id, user=request.user,
+     )
+ 
+     if booking.status != 'pending':
++        if booking.status == 'cancelled':
++            messages.error(request, 'This booking was cancelled or its payment time ran out. Please search again.')
+         return redirect('my_bookings')
+ 
++    expires = hold_expires_at(booking)
+     return render(request, 'payments/choose_method.html', {
+         'booking': booking,
+         'info': ticket_info(booking),
+         'methods': METHODS,
+         'selected': 'CARD',
++        'hold_minutes': HOLD_MINUTES,
++        'expires_at': expires,
++        'seconds_left': max(int((expires - timezone.now()).total_seconds()), 0),
+     })
+ 
+ 
+ @login_required
+ def process_payment(request, booking_id):
+-    booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+-
+-    if booking.status != 'pending':
+-        return redirect('my_bookings')
+-
+     if request.method != 'POST':
+-        return redirect('payments:choose_payment_method', booking_id=booking.id)
+-
+-    # MOCK PAYMENT LOGIC (no real gateway).
+-    method = request.POST.get('method', 'CARD')
+-    if method not in VALID_METHODS:
+-        method = 'CARD'
+-    is_success = random.random() < SUCCESS_RATE
+-
+-    payment = Payment.objects.create(
+-        booking=booking,
+-        payment_method=method,
+-        amount=booking.total_price,
+-        status='SUCCESS' if is_success else 'FAILED',
+-    )
+-
+-    booking.status = 'confirmed' if is_success else 'cancelled'
+-    booking.save()
++        return redirect('payments:choose_payment_method', booking_id=booking_id)
++
++    with transaction.atomic():
++        # Lock the booking so a double click (or two tabs) can't pay for it twice.
++        booking = get_object_or_404(
++            Booking.objects.select_for_update(), id=booking_id, user=request.user,
++        )
++        if booking.status != 'pending':
++            return redirect('my_bookings')
++
++        if is_hold_expired(booking):
++            booking.status = 'cancelled'
++            booking.save(update_fields=['status'])
++            messages.error(request, 'Your payment time ran out and the seats were released. Please book again.')
++            return redirect('my_bookings')
++
++        # MOCK PAYMENT LOGIC (no real gateway).
++        method = request.POST.get('method', 'CARD')
++        if method not in VALID_METHODS:
++            method = 'CARD'
++        is_success = random.random() < SUCCESS_RATE
++
++        payment = Payment.objects.create(
++            booking=booking,
++            payment_method=method,
++            amount=booking.total_price,
++            status='SUCCESS' if is_success else 'FAILED',
++        )
++        # A failed payment keeps the booking (and its seats) on hold, so the user can try
++        # again until the hold runs out, like the real sites. Only success confirms it.
++        if is_success:
++            booking.status = 'confirmed'
++            booking.save(update_fields=['status'])
+ 
+     # Redirect (instead of rendering here) so refreshing the result page can't resubmit the payment.
+     return redirect('payments:payment_result', payment_id=payment.id)
+@@ -78,4 +101,6 @@ def payment_result(request, payment_id):
+         'booking': booking,
+         'info': ticket_info(booking),
+         'success': payment.status == 'SUCCESS',
++        'can_retry': booking.status == 'pending' and not is_hold_expired(booking),
++        'hold_minutes': HOLD_MINUTES,
+     })
+diff --git a/reviews/templates/reviews/write_review.html b/reviews/templates/reviews/write_review.html
+index 889621b..2169c78 100644
+--- a/reviews/templates/reviews/write_review.html
++++ b/reviews/templates/reviews/write_review.html
+@@ -7,8 +7,8 @@
+ {% if not_allowed or already_reviewed %}
+ <section class="box state-box">
+     <span class="state-ico"><svg class="i"><use href="#i-{% if already_reviewed %}check-circle{% else %}info{% endif %}"/></svg></span>
+-    <h2>{% if already_reviewed %}You have already reviewed this booking{% else %}Reviews open after confirmation{% endif %}</h2>
+-    <p class="muted">{% if already_reviewed %}Thanks for sharing your experience. You can edit it any time.{% else %}You can only review bookings that are confirmed.{% endif %}</p>
++    <h2>{% if already_reviewed %}You have already reviewed this booking{% else %}Reviews open after your trip{% endif %}</h2>
++    <p class="muted">{% if already_reviewed %}Thanks for sharing your experience. You can edit it any time.{% else %}You can review a booking once it is confirmed and your trip or stay is over.{% endif %}</p>
+     <div class="ticket-actions">
+         {% if already_reviewed %}<a class="btn btn-lg" href="{% url 'reviews:my_reviews' %}">See my reviews</a>{% endif %}
+         <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">Back to my bookings</a>
+diff --git a/reviews/views.py b/reviews/views.py
+index 9466fc0..a2fd723 100644
+--- a/reviews/views.py
++++ b/reviews/views.py
+@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
+ from django.views.decorators.http import require_POST
+ 
+ from bookings.models import Booking
++from bookings.rules import trip_completed
+ from bookings.tickets import ticket_info
+ from buses.models import Bus
+ from flights.models import Flight
+@@ -30,7 +31,7 @@ def write_review(request, booking_id):
+     booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+     context = {'booking': booking, 'info': ticket_info(booking)}
+ 
+-    if booking.status != 'confirmed':
++    if booking.status != 'confirmed' or not trip_completed(booking):
+         context['not_allowed'] = True
+         return render(request, 'reviews/write_review.html', context)
+ 
+diff --git a/static/css/style.css b/static/css/style.css
+index b9f0743..977a036 100644
+--- a/static/css/style.css
++++ b/static/css/style.css
+@@ -620,6 +620,21 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+ 
+ 
+ .brow .bico{align-self:start}
++
++/* ---- holds, refunds */
++.hold-bar,.banner-note{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;background:#FDF0D5;border:1px solid #F3D9A1;color:#6B4403;border-radius:16px;padding:.8rem 1.1rem;margin-bottom:1rem}
++.hold-bar .i,.banner-note .i{color:#C27B0A;flex:none}
++.hold-bar b{font:700 1.05rem var(--h);font-variant-numeric:tabular-nums}
++.hold-bar.low{background:#FDE3E7;border-color:#F4B7C1;color:#7C1D2D}.hold-bar.low .i{color:#C0314A}
++.banner-note .btn{margin-left:auto}
++.banner-note.ok{background:#DDF4EA;border-color:#B5E3CE;color:#0F5C3E}.banner-note.ok .i{color:#14744E}
++.refund-box{display:grid;grid-template-columns:1fr 1fr;gap:1rem;background:var(--lilac);border-radius:16px;padding:1rem 1.2rem;margin:1rem 0}
++.refund-box small{display:block;color:var(--muted);font-size:.8rem;font-weight:600}
++.refund-box b{font:600 1.6rem var(--h)}.refund-box b.ok{color:#14744E}
++.policy-title{margin:1rem 0 .5rem;font-size:.95rem}
++.policy{list-style:none;margin:0 0 1.2rem;padding:0;display:grid;gap:.4rem;color:var(--muted);font-size:.9rem}
++.policy li{display:flex;gap:.5rem;align-items:flex-start}.policy .i{color:var(--brand2);margin-top:.2rem;flex:none}
++
+ @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+ @keyframes fadeOut{to{opacity:0;visibility:hidden}}
+ @keyframes float{50%{transform:translateY(-14px)}}
+diff --git a/static/js/booking.js b/static/js/booking.js
+index 157607c..99d1850 100644
+--- a/static/js/booking.js
++++ b/static/js/booking.js
+@@ -103,4 +103,25 @@
+       });
+     });
+   }
++
++  // Payment hold countdown. When it reaches zero the seats are released, so leave the page.
++  var hold = document.querySelector('[data-hold-seconds]');
++  if (hold) {
++    var left = parseInt(hold.getAttribute('data-hold-seconds'), 10) || 0;
++    var clock = hold.querySelector('[data-hold-clock]');
++    var tick = function () {
++      var m = Math.floor(left / 60), s = left % 60;
++      clock.textContent = m + ':' + (s < 10 ? '0' : '') + s;
++      hold.classList.toggle('low', left <= 120);
++      if (left <= 0) { window.location.href = hold.getAttribute('data-hold-url'); return; }
++      left -= 1;
++      setTimeout(tick, 1000);
++    };
++    if (clock) tick();
++  }
++
++  // Grey out past days in every date picker that does not already set its own minimum.
++  var d = new Date();
++  var today = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
++  document.querySelectorAll('input[type=date]:not([min])').forEach(function (input) { input.min = today; });
+ })();
+diff --git a/templates/partials/booking_row.html b/templates/partials/booking_row.html
+index 7b8a3d1..34acf48 100644
+--- a/templates/partials/booking_row.html
++++ b/templates/partials/booking_row.html
+@@ -25,10 +25,10 @@
+             <a class="btn btn-sm" href="{% url 'download_ticket' b.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket</a>
+             {% if b.review %}
+                 <a class="btn btn-ghost btn-sm" href="{% url 'reviews:my_reviews' %}">Reviewed</a>
+-            {% else %}
++            {% elif b.can_review %}
+                 <a class="btn btn-ghost btn-sm" href="{% url 'reviews:write_review' b.id %}">Write review</a>
+             {% endif %}
+-            <a class="btn btn-ghost btn-sm" href="{% url 'cancel_booking' b.id %}">Cancel</a>
++            {% if b.can_cancel %}<a class="btn btn-ghost btn-sm" href="{% url 'cancel_booking' b.id %}">Cancel</a>{% endif %}
+         {% elif b.status == 'pending' %}
+             <a class="btn btn-sm" href="{% url 'payments:choose_payment_method' b.id %}">Pay now</a>
+             <a class="btn btn-ghost btn-sm" href="{% url 'cancel_booking' b.id %}">Cancel</a>
+diff --git a/templates/trips/detail.html b/templates/trips/detail.html
+index 2ef7f5f..cdb5e9f 100644
+--- a/templates/trips/detail.html
++++ b/templates/trips/detail.html
+@@ -92,14 +92,17 @@
+         <div class="fare-row"><span>Base fare (per {{ unit }})</span><b>&#8377;{{ item.price|floatformat:"0g" }}</b></div>
+         <div class="fare-row"><span>Seats left</span><b>{{ seats_left }}</b></div>
+ 
+-        {% if sold_out %}
++        {% if closed %}
++            <div class="alert error" style="margin-top:1rem"><svg class="i"><use href="#i-info"/></svg><div>{{ closed }}</div></div>
++            <a class="btn btn-ghost btn-lg btn-block" href="{% url search_url %}">Search again</a>
++        {% elif sold_out %}
+             <div class="alert error" style="margin-top:1rem"><svg class="i"><use href="#i-info"/></svg><div>This {{ kind }} is sold out.</div></div>
+             <a class="btn btn-ghost btn-lg btn-block" href="{% url search_url %}">Search again</a>
+         {% else %}
+             <form method="get" action="{% url book_url item.id %}">
+                 <div class="field">
+                     <label for="pax">Number of {{ unit }}s</label>
+-                    <input type="number" id="pax" name="passengers" min="1" max="{{ seats_left }}" value="{{ passengers }}" required
++                    <input type="number" id="pax" name="passengers" min="1" max="{{ max_pax }}" value="{{ passengers }}" required
+                            data-fare-qty data-price="{{ item.price|stringformat:'s' }}">
+                     {% if too_many %}<p class="hint error-text">Only {{ seats_left }} seat{{ seats_left|pluralize }} left. Please reduce the number of {{ unit }}s.</p>{% endif %}
+                 </div>
+diff --git a/templates/trips/search.html b/templates/trips/search.html
+index 8b5adb7..dc671b6 100644
+--- a/templates/trips/search.html
++++ b/templates/trips/search.html
+@@ -79,7 +79,9 @@
+                             </div>
+                             <div class="actions">
+                                 <a class="btn btn-ghost btn-sm" href="{% url detail_url item.id %}?passengers={{ passengers }}">Details</a>
+-                                {% if item.seats_left >= passengers %}
++                                {% if item.closed_reason %}
++                                    <span class="btn btn-sm btn-disabled">Booking closed</span>
++                                {% elif item.seats_left >= passengers %}
+                                     <a class="btn btn-sm" href="{% url book_url item.id %}?passengers={{ passengers }}">Book now</a>
+                                 {% elif item.seats_left > 0 %}
+                                     <span class="btn btn-sm btn-disabled">Not enough seats</span>

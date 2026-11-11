@@ -18,7 +18,7 @@
         <section class="box">
             <h3><svg class="i"><use href="#i-building"/></svg> Your stay</h3>
             <div class="mini">
-                <div class="thumb ph ph-{{ hotel.placeholder_variant }}">{% if hotel.image_url %}<img src="{{ hotel.image_url }}" alt="{{ hotel.name }}" onerror="this.remove()">{% endif %}</div>
+                <div class="thumb ph ph-{{ hotel.placeholder_variant }}"><img src="{{ hotel.photo_url }}" alt="{{ hotel.name }}" onerror="this.remove()"></div>
                 <div>
                     <h4>{{ hotel.name }} {% if hotel.rating %}<span class="rating"><svg class="i"><use href="#i-star"/></svg> {{ hotel.rating }}</span>{% endif %}</h4>
                     <span class="loc" style="margin:0"><svg class="i"><use href="#i-pin"/></svg> {{ hotel.location }}</span>

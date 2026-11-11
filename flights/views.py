@@ -1,8 +1,10 @@
 from django.shortcuts import get_object_or_404, render
 
+from bookings.rules import booking_closed_reason, max_per_booking
 from bookings.utils import seats_available
 from reviews.utils import review_summary
 from travelbooking.helpers import parse_int
+from travelbooking.trips import search_trips
 
 from .forms import FlightSearchForm
 from .models import Flight
@@ -20,50 +22,20 @@ def _known_cities():
 
 
 def flight_search_view(request):
-    flights = []
-    form = FlightSearchForm(request.GET or None)
-    searched = bool(request.GET) and form.is_valid()
-    passengers = 1
-
-    if searched:
-        data = form.cleaned_data
-        passengers = data['passengers']
-
-        flights = list(
-            Flight.objects.filter(
-                departure_city__icontains=data['departure_city'],
-                destination_city__icontains=data['destination_city'],
-                departure_time__date=data['date'],
-            ).order_by('departure_time')
-        )
-        for flight in flights:
-            flight.seats_left = seats_available(flight, 'flight')
-
-        sorter = SORTERS.get(data['sort'])
-        if sorter:
-            flights.sort(key=sorter)
-
-    return render(request, 'trips/search.html', {
-        'kind': 'flight',
-        'kind_label': 'Flights',
-        'unit': 'passenger',
-        'form': form,
-        'origin_field': form['departure_city'],
-        'dest_field': form['destination_city'],
-        'items': flights,
-        'searched': searched,
-        'has_errors': bool(request.GET) and not searched,
-        'passengers': passengers,
-        'cities': _known_cities(),
-        'detail_url': 'flight_detail',
-        'book_url': 'book_flight',
+    return search_trips(request, {
+        'model': Flight, 'kind': 'flight', 'kind_label': 'Flights', 'unit': 'passenger',
+        'form': FlightSearchForm, 'sorters': SORTERS, 'cities': _known_cities,
+        'origin_field': 'departure_city', 'dest_field': 'destination_city',
+        'origin_lookup': 'departure_city', 'dest_lookup': 'destination_city',
+        'detail_url': 'flight_detail', 'book_url': 'book_flight',
     })
 
 
 def flight_detail_view(request, flight_id):
     flight = get_object_or_404(Flight, id=flight_id)
     seats_left = seats_available(flight, 'flight')
-    passengers = parse_int(request.GET.get('passengers'), default=1, minimum=1)
+    limit = max_per_booking('flight')
+    passengers = min(parse_int(request.GET.get('passengers'), default=1, minimum=1), limit)
 
     return render(request, 'trips/detail.html', {
         'kind': 'flight',
@@ -74,6 +46,8 @@ def flight_detail_view(request, flight_id):
         'passengers': passengers,
         'total_price': flight.price * passengers,
         'sold_out': seats_left < 1,
+        'closed': booking_closed_reason(flight, 'flight'),
+        'max_pax': max(min(seats_left, limit), 1),
         'too_many': passengers > seats_left,
         'reviews': review_summary('flight', flight),
         'search_url': 'flight_search',

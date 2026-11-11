@@ -1,0 +1,1 @@
+{% if c %}<label class="seat{% if c.taken %} taken{% endif %}" title="{% if c.taken %}Already booked{% else %}Seat {{ c.label }}{% endif %}"><input type="checkbox" name="{{ leg.field }}" value="{{ c.label }}"{% if c.taken %} disabled{% endif %}{% if c.chosen %} checked{% endif %}><span>{{ c.label }}</span></label>{% else %}<span class="seat gap"></span>{% endif %}

@@ -9,16 +9,11 @@
 <div class="detail-grid">
     <div>
         <div class="banner {% if kind == 'flight' %}plane{% endif %}">
-            {% if kind == 'flight' %}
-                <div class="banner-bg"></div>
-            {% elif item.image_url %}
-                <img class="banner-bg" src="{{ item.image_url }}" alt="{{ item.carrier }}" onerror="this.remove()">
-            {% else %}
-                <svg class="i banner-mark"><use href="#i-bus"/></svg>
-            {% endif %}
+            <div class="banner-bg"></div>
+            <img class="banner-bg" src="{{ item.photo_url }}" alt="{{ item.carrier }}" onerror="this.remove()">
             <div class="banner-in">
                 <div class="carrier">
-                    <span class="logo lg {{ kind }}">{{ item.logo_text }}</span>
+                    {% include 'partials/logo.html' with size='lg' %}
                     <div><b>{{ item.carrier }}</b><small>{{ kind_label }} {{ item.number }}</small></div>
                 </div>
                 <div class="actions">
@@ -92,14 +87,17 @@
         <div class="fare-row"><span>Base fare (per {{ unit }})</span><b>&#8377;{{ item.price|floatformat:"0g" }}</b></div>
         <div class="fare-row"><span>Seats left</span><b>{{ seats_left }}</b></div>
 
-        {% if sold_out %}
+        {% if closed %}
+            <div class="alert error" style="margin-top:1rem"><svg class="i"><use href="#i-info"/></svg><div>{{ closed }}</div></div>
+            <a class="btn btn-ghost btn-lg btn-block" href="{% url search_url %}">Search again</a>
+        {% elif sold_out %}
             <div class="alert error" style="margin-top:1rem"><svg class="i"><use href="#i-info"/></svg><div>This {{ kind }} is sold out.</div></div>
             <a class="btn btn-ghost btn-lg btn-block" href="{% url search_url %}">Search again</a>
         {% else %}
             <form method="get" action="{% url book_url item.id %}">
                 <div class="field">
                     <label for="pax">Number of {{ unit }}s</label>
-                    <input type="number" id="pax" name="passengers" min="1" max="{{ seats_left }}" value="{{ passengers }}" required
+                    <input type="number" id="pax" name="passengers" min="1" max="{{ max_pax }}" value="{{ passengers }}" required
                            data-fare-qty data-price="{{ item.price|stringformat:'s' }}">
                     {% if too_many %}<p class="hint error-text">Only {{ seats_left }} seat{{ seats_left|pluralize }} left. Please reduce the number of {{ unit }}s.</p>{% endif %}
                 </div>

@@ -1,6 +1,7 @@
 from django.db import models
 
 from travelbooking.helpers import format_duration, initials, parse_amenities
+from travelbooking.media import PLANE_PHOTOS, airline_logo, pick
 
 DEFAULT_FLIGHT_AMENITIES = (
     'Cabin baggage 7 kg, Check-in baggage 15 kg, In-flight meals available, Web check-in'
@@ -16,6 +17,8 @@ class Flight(models.Model):
     arrival_time = models.DateTimeField()
     total_seats = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    stops = models.PositiveSmallIntegerField(default=0, help_text='0 means non-stop.')
+    via_city = models.CharField(max_length=100, blank=True, help_text='Where a one-stop flight changes planes.')
     amenities = models.TextField(
         blank=True,
         default=DEFAULT_FLIGHT_AMENITIES,
@@ -44,7 +47,18 @@ class Flight(models.Model):
 
     @property
     def tag(self):
-        return 'Non-stop'
+        if not self.stops:
+            return 'Non-stop'
+        label = '1 stop' if self.stops == 1 else f'{self.stops} stops'
+        return f'{label} via {self.via_city}' if self.via_city else label
+
+    @property
+    def photo_url(self):
+        return pick(PLANE_PHOTOS, self.pk)
+
+    @property
+    def logo_url(self):
+        return airline_logo(self.airline_name)
 
     @property
     def logo_text(self):

@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from bookings.models import Booking
+from bookings.rules import trip_completed
 from bookings.tickets import ticket_info
 from buses.models import Bus
 from flights.models import Flight
@@ -30,7 +31,7 @@ def write_review(request, booking_id):
     booking = get_object_or_404(Booking, id=booking_id, user=request.user)
     context = {'booking': booking, 'info': ticket_info(booking)}
 
-    if booking.status != 'confirmed':
+    if booking.status != 'confirmed' or not trip_completed(booking):
         context['not_allowed'] = True
         return render(request, 'reviews/write_review.html', context)
 

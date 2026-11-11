@@ -13,7 +13,7 @@
 <p class="loc"><svg class="i"><use href="#i-pin"/></svg> {{ hotel.location }}</p>
 
 <div class="gallery single">
-    <div class="ph ph-{{ hotel.placeholder_variant }}">{% if hotel.image_url %}<img src="{{ hotel.image_url }}" alt="{{ hotel.name }}" onerror="this.remove()">{% endif %}</div>
+    <div class="ph ph-{{ hotel.placeholder_variant }}"><img src="{{ hotel.photo_url }}" alt="{{ hotel.name }}" onerror="this.remove()"></div>
 </div>
 
 <div class="detail-grid">

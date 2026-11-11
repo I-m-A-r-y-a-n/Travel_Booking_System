@@ -2,9 +2,11 @@ from datetime import date
 from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from bookings.models import Booking
+from bookings.rules import expire_stale, holding_q, stay_error
 from reviews.utils import review_summary
 from travelbooking.helpers import parse_date, parse_int
 
@@ -13,22 +15,19 @@ from .models import Hotel, Room
 
 def _stay_error(check_in, check_out):
     """Message for an unusable date pair, or None when it is fine."""
-    if check_out <= check_in:
-        return 'Check-out date must be after check-in date.'
-    if check_in < date.today():
-        return 'Check-in date cannot be in the past.'
-    return None
+    return stay_error(check_in, check_out)
 
 
 def _rooms_left(room, check_in, check_out):
-    """How many rooms of this type are still free for the given dates."""
+    """How many rooms of this type are still free for the given dates.
+    Confirmed bookings and unpaid ones still on hold take a room."""
     overlapping = Booking.objects.filter(
+        holding_q(),
         room=room,
-        status__in=['pending', 'confirmed'],
         check_in_date__lt=check_out,
         check_out_date__gt=check_in,
     ).count()
-    return room.total_rooms - overlapping
+    return max(room.total_rooms - overlapping, 0)
 
 
 def _stay_query(check_in, check_out, guests):
@@ -55,7 +54,8 @@ def search_hotels(request):
     nights = (check_out_date - check_in_date).days if has_dates and not error else None
 
     hotels = []
-    if not error:
+    searched = bool(request.GET)
+    if searched and not error:  # a first visit shows the "Find your stay" prompt, not every hotel
         rooms = Room.objects.select_related('hotel').order_by('price_per_night')
         if destination:
             rooms = rooms.filter(hotel__location__icontains=destination)
@@ -86,7 +86,7 @@ def search_hotels(request):
 
     context = {
         'hotels': hotels,
-        'searched': bool(request.GET),
+        'searched': searched,
         'error': error,
         'destination': destination,
         'guests': guests or '',
@@ -139,6 +139,7 @@ def hotel_detail(request, hotel_id):
 @login_required
 def book_room(request, room_id):
     """GET shows the review page; POST creates the pending booking."""
+    expire_stale(request.user)
     room = get_object_or_404(Room.objects.select_related('hotel'), id=room_id)
     source = request.POST if request.method == 'POST' else request.GET
 
@@ -172,17 +173,34 @@ def book_room(request, room_id):
     total_price = room.price_per_night * nights
 
     if request.method == 'POST':
-        booking = Booking.objects.create(
-            user=request.user,
-            booking_type='hotel',
-            hotel=room.hotel,
-            room=room,
-            check_in_date=check_in_date,
-            check_out_date=check_out_date,
-            passengers=guests,
-            total_price=total_price,
-            status='pending',
-        )
+        with transaction.atomic():
+            # Lock the room row so two people can't take the last room at the same moment.
+            locked = Room.objects.select_for_update().get(pk=room.pk)
+            existing = (
+                Booking.objects.filter(
+                    holding_q(), user=request.user, status='pending', room=locked,
+                    check_in_date=check_in_date, check_out_date=check_out_date,
+                ).first()
+            )
+            if existing is None and _rooms_left(locked, check_in_date, check_out_date) <= 0:
+                return failed('No rooms available for the selected dates.')
+            if existing:  # same user clicked again: reuse their booking instead of holding twice
+                existing.passengers = guests
+                existing.total_price = total_price
+                existing.save(update_fields=['passengers', 'total_price'])
+                booking = existing
+            else:
+                booking = Booking.objects.create(
+                    user=request.user,
+                    booking_type='hotel',
+                    hotel=room.hotel,
+                    room=room,
+                    check_in_date=check_in_date,
+                    check_out_date=check_out_date,
+                    passengers=guests,
+                    total_price=total_price,
+                    status='pending',
+                )
         return redirect('payments:choose_payment_method', booking_id=booking.id)
 
     return render(request, 'hotels/confirm_booking.html', {
