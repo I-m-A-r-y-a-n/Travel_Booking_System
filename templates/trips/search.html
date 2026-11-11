@@ -4,13 +4,17 @@
 {% block main_class %}wide{% endblock %}
 
 {% block content %}
-<div class="search-layout">
+<div class="search-layout{% if searched %} has-drawer{% endif %}" data-search-layout>
     <aside class="search-panel">
         <h2 class="panel-title">
             <span class="ico"><svg class="i"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg></span>
             Search {{ kind_label }}
         </h2>
-        <form method="get" id="search-form">
+        <form method="get" id="search-form" data-trip-form>
+            <div class="trip-toggle" role="radiogroup" aria-label="Trip type">
+                <label><input type="radio" name="trip" value="oneway" {% if not round_trip %}checked{% endif %}><span>One way</span></label>
+                <label><input type="radio" name="trip" value="round" {% if round_trip %}checked{% endif %}><span>Round trip</span></label>
+            </div>
             <div class="route-fields">
                 <div class="field">
                     <label for="{{ origin_field.id_for_label }}">From</label>
@@ -24,13 +28,17 @@
             </div>
             <div class="field-row">
                 <div class="field">
-                    <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+                    <label for="{{ form.date.id_for_label }}">Departure</label>
                     {{ form.date }}{{ form.date.errors }}
                 </div>
-                <div class="field">
-                    <label for="{{ form.passengers.id_for_label }}">Passengers</label>
-                    {{ form.passengers }}{{ form.passengers.errors }}
+                <div class="field" data-return-field {% if not round_trip %}hidden{% endif %}>
+                    <label for="{{ form.return_date.id_for_label }}">Return</label>
+                    {{ form.return_date }}{{ form.return_date.errors }}
                 </div>
+            </div>
+            <div class="field">
+                <label for="{{ form.passengers.id_for_label }}">Passengers</label>
+                {{ form.passengers }}{{ form.passengers.errors }}
             </div>
             <button type="submit" class="btn-submit"><svg class="i"><use href="#i-search"/></svg> Search {{ kind_label }}</button>
             <datalist id="city-list">{% for city in cities %}<option value="{{ city }}">{% endfor %}</datalist>
@@ -38,31 +46,56 @@
         <p class="form-note">Partial city names work, e.g. &ldquo;Ban&rdquo; finds Bangalore.</p>
     </aside>
 
-    <section>
+    <section class="results-col">
         {% if searched %}
+            {% if step == 2 %}
+                <div class="leg-bar">
+                    <span class="leg-tag">Outbound selected</span>
+                    <div class="leg-sum">
+                        {% include 'partials/logo.html' with item=outbound %}
+                        <div><b>{{ outbound.carrier }}</b> <small>{{ outbound.number }}</small></div>
+                        <div class="leg-times">{{ outbound.departure_time|time:"H:i" }} <svg class="i"><use href="#i-arrow-right"/></svg> {{ outbound.arrival_time|time:"H:i" }}<small>{{ outbound.origin }} to {{ outbound.dest }} &middot; {{ outbound.departure_time|date:"D, d M" }}</small></div>
+                        <b class="leg-price">&#8377;{{ outbound.price|floatformat:"0g" }}</b>
+                    </div>
+                    <a class="btn btn-ghost btn-sm" href="?{{ select_qs }}">Change</a>
+                </div>
+            {% endif %}
             <div class="results-head">
                 <div>
-                    <h1 class="results-title">{{ origin_field.value }} <svg class="i"><use href="#i-arrow-right"/></svg> {{ dest_field.value }}</h1>
-                    <p class="results-meta">
-                        {{ items|length }} {{ kind_label|lower }} found &middot; {{ form.cleaned_data.date|date:"D, d M Y" }} &middot; {{ passengers }} {{ unit }}{{ passengers|pluralize }}
-                    </p>
+                    {% if round_trip %}<p class="results-step">Step {{ step }} of 2 &middot; {% if step == 1 %}Choose your outbound {{ kind }}{% else %}Choose your return {{ kind }}{% endif %}</p>{% endif %}
+                    <h1 class="results-title">{% if step == 2 %}{{ outbound.dest }}{% else %}{{ origin_field.value }}{% endif %} <svg class="i"><use href="#i-arrow-right"/></svg> {% if step == 2 %}{{ outbound.origin }}{% else %}{{ dest_field.value }}{% endif %}</h1>
                 </div>
-                <div class="sort">
-                    <label for="sort">Sort by</label>
-                    <select name="sort" id="sort" form="search-form" onchange="this.form.submit()">
-                        {% for value, label in form.fields.sort.choices %}
-                            <option value="{{ value }}" {% if form.sort.value == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="head-tools">
+                    <div class="sort">
+                        <label for="sort">Sort by</label>
+                        <select name="sort" id="sort" form="filter-form" data-sort>
+                            {% for value, label in form.fields.sort.choices %}
+                                <option value="{{ value }}" {% if form.sort.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" class="filter-btn" data-drawer-open aria-controls="filter-drawer" aria-expanded="false">
+                        <svg class="i"><use href="#i-filter"/></svg> Filters
+                        <span class="f-badge" data-filter-count{% if not filters_on %} hidden{% endif %}>{{ filters_on }}</span>
+                    </button>
                 </div>
             </div>
+
+            <div data-results>
+            <p class="results-meta">
+                {% if items|length == 1 %}1 {{ kind }}{% else %}{{ items|length }} {{ kind_label|lower }}{% endif %} found &middot; {% if step == 2 %}{{ form.cleaned_data.return_date|date:"D, d M Y" }}{% else %}{{ form.cleaned_data.date|date:"D, d M Y" }}{% endif %} &middot; {{ passengers }} {{ unit }}{{ passengers|pluralize }}
+            </p>
 
             {% if items %}
                 <div class="result-stack">
                 {% for item in items %}
-                    <article class="rcard trip">
+                    <article class="rcard trip{% if kind == 'bus' %} bus{% endif %}">
                         <div class="carrier">
-                            <span class="logo {{ kind }}">{{ item.logo_text }}</span>
+                            {% if kind == 'bus' %}
+                                <span class="bus-photo"><i>{{ item.logo_text }}</i><img src="{{ item.photo_url }}" alt="" loading="lazy" onerror="this.remove()"></span>
+                            {% else %}
+                                {% include 'partials/logo.html' %}
+                            {% endif %}
                             <div><b>{{ item.carrier }}</b><small>{{ item.number }}</small></div>
                         </div>
 
@@ -76,11 +109,20 @@
                             <div>
                                 <div class="price">&#8377;{{ item.price|floatformat:"0g" }}</div>
                                 <span class="price-note">per {{ unit }}</span>
+                                {% if step == 2 %}<span class="pair-total">Round trip &#8377;{{ item.pair_total|floatformat:"0g" }}</span>{% endif %}
                             </div>
                             <div class="actions">
                                 <a class="btn btn-ghost btn-sm" href="{% url detail_url item.id %}?passengers={{ passengers }}">Details</a>
-                                {% if item.seats_left >= passengers %}
-                                    <a class="btn btn-sm" href="{% url book_url item.id %}?passengers={{ passengers }}">Book now</a>
+                                {% if item.closed_reason %}
+                                    <span class="btn btn-sm btn-disabled">Booking closed</span>
+                                {% elif item.seats_left >= passengers %}
+                                    {% if step == 2 %}
+                                        <a class="btn btn-sm" href="{% url book_url outbound.id %}?passengers={{ passengers }}&amp;return={{ item.id }}">Book both</a>
+                                    {% elif round_trip %}
+                                        <a class="btn btn-sm" href="?{{ select_qs }}&amp;outbound={{ item.id }}">Select</a>
+                                    {% else %}
+                                        <a class="btn btn-sm" href="{% url book_url item.id %}?passengers={{ passengers }}">Book now</a>
+                                    {% endif %}
                                 {% elif item.seats_left > 0 %}
                                     <span class="btn btn-sm btn-disabled">Not enough seats</span>
                                 {% else %}
@@ -113,9 +155,10 @@
                 <div class="empty">
                     <div class="ico"><svg class="i"><use href="#i-search"/></svg></div>
                     <h3>No {{ kind_label|lower }} found</h3>
-                    <p>Nothing matches this route on that date. Try another date, or a shorter city name.</p>
+                    <p>Nothing matches{% if filters_on %} these filters{% else %} this route on that date{% endif %}. {% if filters_on %}Try clearing a filter.{% else %}Try another date, or a shorter city name.{% endif %}</p>
                 </div>
             {% endif %}
+            </div>
         {% elif has_errors %}
             <div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>Please fix the highlighted fields in the search form and try again.</div></div>
         {% else %}
@@ -126,5 +169,59 @@
             </div>
         {% endif %}
     </section>
+
+    {% if searched %}
+    <aside class="filter-drawer" id="filter-drawer" data-drawer aria-label="Filters" aria-hidden="true">
+        <div class="drawer-in">
+            <form method="get" id="filter-form" class="drawer-card" data-filters>
+                {% for name, value in carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+                <header class="drawer-head">
+                    <h2><svg class="i"><use href="#i-filter"/></svg> Filters</h2>
+                    <button type="button" class="icon-btn" data-drawer-close aria-label="Close filters"><svg class="i"><use href="#i-x"/></svg></button>
+                </header>
+
+                <div class="drawer-body">
+                    {% if kind == 'flight' %}
+                    <fieldset class="f-sec">
+                        <legend>Stops</legend>
+                        <label class="f-check"><input type="checkbox" name="nonstop" value="1" {% if filters.nonstop %}checked{% endif %}><span class="box-ico"></span><span class="f-label">Non-stop only</span></label>
+                    </fieldset>
+                    {% else %}
+                    <fieldset class="f-sec">
+                        <legend>Bus type</legend>
+                        {% for value, label in type_choices %}
+                        <label class="f-check"><input type="checkbox" name="bus_type" value="{{ value }}" {% if value in filters.bus_type %}checked{% endif %}><span class="box-ico"></span><span class="f-label">{{ label }}</span></label>
+                        {% endfor %}
+                    </fieldset>
+                    {% endif %}
+
+                    <fieldset class="f-sec">
+                        <legend>Departure time</legend>
+                        <div class="f-tiles">
+                            {% for key, label, start, end in time_buckets %}
+                            <label class="f-tile"><input type="checkbox" name="dep" value="{{ key }}" {% if key in filters.dep %}checked{% endif %}><span><b>{{ label }}</b></span></label>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+
+                    {% if bounds and bounds.min != bounds.max %}
+                    <fieldset class="f-sec">
+                        <legend>Price range</legend>
+                        <div class="f-price"><span>&#8377;{{ bounds.min|floatformat:"0g" }}</span><b data-price-out>up to &#8377;{{ max_price_value|floatformat:"0g" }}</b></div>
+                        <input type="range" name="max_price" min="{{ bounds.min }}" max="{{ bounds.max }}" step="100" value="{{ max_price_value }}" data-price-range>
+                        <div class="f-price-ends"><span>&#8377;{{ bounds.min|floatformat:"0g" }}</span><span>&#8377;{{ bounds.max|floatformat:"0g" }}</span></div>
+                    </fieldset>
+                    {% endif %}
+                </div>
+
+                <footer class="drawer-foot">
+                    <a class="btn btn-ghost btn-sm" data-clear href="?{{ select_qs }}{% if outbound %}&amp;outbound={{ outbound.id }}{% endif %}{% if form.sort.value %}&amp;sort={{ form.sort.value }}{% endif %}">Clear all</a>
+                    <button type="submit" class="btn btn-sm" data-apply>Show <span data-count>{{ items|length }}</span> result<span data-plural>{{ items|length|pluralize }}</span></button>
+                </footer>
+            </form>
+        </div>
+    </aside>
+    <div class="drawer-backdrop" data-drawer-close></div>
+    {% endif %}
 </div>
 {% endblock %}

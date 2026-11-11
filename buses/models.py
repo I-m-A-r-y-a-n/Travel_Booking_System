@@ -1,6 +1,7 @@
 from django.db import models
 
 from travelbooking.helpers import format_duration, initials, parse_amenities
+from travelbooking.media import BUS_PHOTOS, pick
 
 DEFAULT_BUS_AMENITIES = (
     'Air conditioning, Charging point, Reading light, Water bottle, Live bus tracking'
@@ -43,6 +44,14 @@ class Bus(models.Model):
     @property
     def carrier(self):
         return self.operator_name
+
+    @property
+    def photo_url(self):
+        return self.image_url or pick(BUS_PHOTOS, self.pk)
+
+    @property
+    def logo_url(self):
+        return ''
 
     @property
     def number(self):

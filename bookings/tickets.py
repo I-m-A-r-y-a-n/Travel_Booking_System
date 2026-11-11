@@ -41,7 +41,15 @@ def ticket_info(booking):
         'origin': '', 'dest': '', 'depart': None, 'arrive': None, 'duration': '', 'day_offset': 0,
         'check_in': None, 'check_out': None, 'nights': None,
         'unit_price': None, 'qty': 1, 'qty_text': '', 'start_date': None, 'summary': '',
+        'leg': booking.leg, 'leg_label': booking.get_leg_display() if booking.leg else '',
+        'travellers': [], 'seats': '',
     }
+    if kind in ('flight', 'bus'):
+        info['travellers'] = [
+            {'name': p.name, 'age': p.age, 'gender': p.get_gender_display(), 'seat': p.seat}
+            for p in booking.travellers.all()
+        ]
+        info['seats'] = ', '.join(p['seat'] for p in info['travellers'] if p['seat'])
 
     trip = booking.flight if kind == 'flight' else booking.bus if kind == 'bus' else None
     if trip is not None:

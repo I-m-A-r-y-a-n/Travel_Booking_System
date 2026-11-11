@@ -13,34 +13,117 @@
     <li>Confirmation</li>
 </ol>
 
-<div class="detail-grid">
+{% if closed %}
+<div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ closed }}</div></div>
+<a class="btn btn-ghost btn-lg" href="{% url detail_url item.id %}">Back to details</a>
+{% elif sold_out %}
+<div class="alert error">
+    <svg class="i"><use href="#i-info"/></svg>
     <div>
+        {% if seats_available %}Only {{ seats_available }} seat{{ seats_available|pluralize }} left, which is not enough for {{ passengers }} {{ unit }}{{ passengers|pluralize }}.
+        {% else %}{% if round_trip %}One of these trips is{% else %}This {{ kind }} is{% endif %} sold out.{% endif %}
+    </div>
+</div>
+{% if seats_available %}<a class="btn btn-lg" href="?passengers={{ seats_available }}{% if return_id %}&amp;return={{ return_id }}{% endif %}">Book {{ seats_available }} {{ unit }}{{ seats_available|pluralize }} instead</a>{% endif %}
+<a class="btn btn-ghost btn-lg" href="{% url detail_url item.id %}">Back to details</a>
+{% else %}
+
+{% if error %}<div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>{{ error }}</div></div>{% endif %}
+{% if submitted and not error %}<div class="alert error"><svg class="i"><use href="#i-info"/></svg><div>Please fix the highlighted details below.</div></div>{% endif %}
+
+<form method="post" class="detail-grid" data-once data-seat-form>
+    {% csrf_token %}
+    <input type="hidden" name="passengers" value="{{ passengers }}">
+    {% if return_id %}<input type="hidden" name="return" value="{{ return_id }}">{% endif %}
+
+    <div>
+        {% for leg in legs %}
         <section class="box">
-            <h3><svg class="i"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg> {{ item_type }} summary</h3>
+            <h3><svg class="i"><use href="#i-{% if kind == 'bus' %}bus{% else %}plane{% endif %}"/></svg> {% if leg.role %}{{ leg.role }} &middot; {% endif %}{{ item_type }} summary</h3>
             <div class="mini">
-                <span class="logo lg {{ kind }}">{{ item.logo_text }}</span>
+                {% include 'partials/logo.html' with item=leg.item size='lg' %}
                 <div>
-                    <h4>{{ item.carrier }}</h4>
-                    <span class="muted">{{ item_type }} {{ item.number }}</span>
-                    <span class="badge" style="margin-left:.4rem">{{ item.tag }}</span>
+                    <h4>{{ leg.item.carrier }}</h4>
+                    <span class="muted">{{ item_type }} {{ leg.item.number }}</span>
+                    <span class="badge" style="margin-left:.4rem">{{ leg.item.tag }}</span>
                 </div>
             </div>
-
-            {% include 'partials/journey.html' %}
-
+            {% with item=leg.item %}{% include 'partials/journey.html' %}{% endwith %}
             <div class="facts">
-                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Travel date</small><b>{{ item.departure_time|date:"D, d M Y" }}</b></div>
-                <div class="fact"><small><svg class="i"><use href="#i-clock"/></svg> Duration</small><b>{{ item.duration }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Travel date</small><b>{{ leg.item.departure_time|date:"D, d M Y" }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-clock"/></svg> Duration</small><b>{{ leg.item.duration }}</b></div>
                 <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> {{ unit|capfirst }}s</small><b>{{ passengers }}</b></div>
-                <div class="fact"><small><svg class="i"><use href="#i-check"/></svg> Seats left</small><b>{{ seats_available }}</b></div>
+                <div class="fact"><small><svg class="i"><use href="#i-check"/></svg> Seats left</small><b>{{ leg.seats_left }}</b></div>
             </div>
         </section>
+        {% endfor %}
 
-        {% if item.amenity_items %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-users"/></svg> {% if kind == 'flight' %}Passenger{% else %}Traveller{% endif %} details</h3>
+            <p class="muted mt0">Enter each traveller&rsquo;s name exactly as on their ID. These appear on the ticket.</p>
+            {% for row in rows %}
+            <div class="pax-row">
+                <div class="pax-n">{{ row.n }}</div>
+                <div class="pax-fields">
+                    <div class="field{% if row.errors.name %} has-error{% endif %}">
+                        <label for="name_{{ row.n }}">Full name</label>
+                        <input type="text" id="name_{{ row.n }}" name="name_{{ row.n }}" value="{{ row.name }}" maxlength="60" placeholder="e.g. Asha Kumar" autocomplete="off" required>
+                        {% if row.errors.name %}<p class="hint error-text">{{ row.errors.name }}</p>{% endif %}
+                    </div>
+                    <div class="field{% if row.errors.age %} has-error{% endif %}">
+                        <label for="age_{{ row.n }}">Age</label>
+                        <input type="number" id="age_{{ row.n }}" name="age_{{ row.n }}" value="{{ row.age }}" min="0" max="120" placeholder="28" required>
+                        {% if row.errors.age %}<p class="hint error-text">{{ row.errors.age }}</p>{% endif %}
+                    </div>
+                    <div class="field{% if row.errors.gender %} has-error{% endif %}">
+                        <label for="gender_{{ row.n }}">Gender</label>
+                        <select id="gender_{{ row.n }}" name="gender_{{ row.n }}" required>
+                            <option value="">Select</option>
+                            {% for value, label in genders %}<option value="{{ value }}"{% if row.gender == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        {% if row.errors.gender %}<p class="hint error-text">{{ row.errors.gender }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+
+        {% for leg in legs %}
+        <section class="box">
+            <h3><svg class="i"><use href="#i-check"/></svg> Choose your {% if kind == 'flight' %}seat{{ passengers|pluralize }}{% else %}{% if leg.item.bus_type == 'AC_SLEEPER' or leg.item.bus_type == 'NONAC_SLEEPER' %}berth{{ passengers|pluralize }}{% else %}seat{{ passengers|pluralize }}{% endif %}{% endif %}{% if leg.role %} &middot; {{ leg.role }}{% endif %}</h3>
+            <p class="muted mt0">
+                {% if seats_required %}Pick {{ passengers }} to continue.{% else %}Pick {{ passengers }}, or skip this and get seats assigned at check-in.{% endif %}
+                <b data-seat-count>0</b> of {{ passengers }} selected.
+            </p>
+            {% if leg.seat_problem %}<p class="hint error-text">{{ leg.seat_problem }}</p>{% endif %}
+            <div class="seat-legend">
+                <span><i class="seat sample"></i> Available</span>
+                <span><i class="seat sample on"></i> Selected</span>
+                <span><i class="seat sample taken"></i> Booked</span>
+            </div>
+            <div class="seatmap" data-seatmap data-max="{{ passengers }}">
+                {% for deck in leg.map.decks %}
+                <div class="deck">
+                    {% if deck.name %}<h5>{{ deck.name }}</h5>{% else %}<div class="cockpit">{% if kind == 'flight' %}Front of the plane{% else %}Driver{% endif %}</div>{% endif %}
+                    {% for row in deck.rows %}
+                    <div class="sm-row">
+                        <span class="rn">{{ row.num }}</span>
+                        {% for c in row.left %}{% include 'partials/seat_cell.html' %}{% endfor %}
+                        <span class="aisle"></span>
+                        {% for c in row.right %}{% include 'partials/seat_cell.html' %}{% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+
+        {% if legs.0.item.amenity_items %}
         <section class="box">
             <h3><svg class="i"><use href="#i-check"/></svg> Included facilities</h3>
             <div class="amenities">
-                {% for a in item.amenity_items %}
+                {% for a in legs.0.item.amenity_items %}
                     <span class="amen"><svg class="i"><use href="#i-{{ a.icon }}"/></svg>{{ a.label }}</span>
                 {% endfor %}
             </div>
@@ -50,37 +133,14 @@
 
     <aside class="fare-box sticky">
         <h3>Fare summary</h3>
-
-        {% if sold_out %}
-            <div class="alert error">
-                <svg class="i"><use href="#i-info"/></svg>
-                <div>
-                    {% if seats_available %}
-                        Only {{ seats_available }} seat{{ seats_available|pluralize }} left, which is not enough for {{ passengers }} {{ unit }}{{ passengers|pluralize }}.
-                    {% else %}
-                        This {{ kind }} is sold out.
-                    {% endif %}
-                </div>
-            </div>
-            {% if seats_available %}
-                <a class="btn btn-lg btn-block" href="?passengers={{ seats_available }}">Book {{ seats_available }} {{ unit }}{{ seats_available|pluralize }} instead</a>
-                <p></p>
-            {% endif %}
-            <a class="btn btn-ghost btn-lg btn-block" href="{% url detail_url item.id %}">Back to details</a>
-        {% else %}
-            <form method="post">
-                {% csrf_token %}
-                <div class="field">
-                    <label for="pax">Number of {{ unit }}s</label>
-                    <input type="number" id="pax" name="passengers" min="1" max="{{ seats_available }}" value="{{ passengers }}" required
-                           data-fare-qty data-price="{{ item.price|stringformat:'s' }}">
-                </div>
-                <div class="fare-row"><span>Base fare</span><b>&#8377;{{ item.price|floatformat:"0g" }} &times; <span data-fare-count>{{ passengers }}</span></b></div>
-                <div class="fare-total"><span>Total payable</span><b data-fare-total>&#8377;{{ total_price|floatformat:"0g" }}</b></div>
-                <button type="submit" class="btn-lg btn-block">Confirm &amp; continue to payment</button>
-                <p class="secure"><svg class="i"><use href="#i-shield"/></svg> You won&rsquo;t be charged until the next step</p>
-            </form>
-        {% endif %}
+        {% for leg in legs %}
+        <div class="fare-row"><span>{% if leg.role %}{{ leg.role }}: {% endif %}&#8377;{{ leg.item.price|floatformat:"0g" }} &times; {{ passengers }}</span><b>&#8377;{{ leg.fare|floatformat:"0g" }}</b></div>
+        {% endfor %}
+        <div class="fare-row"><span>{{ unit|capfirst }}s</span><b>{{ passengers }} <a class="mini-link" href="{% url detail_url item.id %}">Change</a></b></div>
+        <div class="fare-total"><span>Total payable</span><b>&#8377;{{ total_price|floatformat:"0g" }}</b></div>
+        <button type="submit" class="btn-lg btn-block" data-busy="Holding your seats&hellip;">Continue to payment</button>
+        <p class="secure"><svg class="i"><use href="#i-shield"/></svg> You won&rsquo;t be charged until the next step</p>
     </aside>
-</div>
+</form>
+{% endif %}
 {% endblock %}

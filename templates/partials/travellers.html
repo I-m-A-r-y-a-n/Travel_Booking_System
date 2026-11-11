@@ -1,0 +1,13 @@
+{% if info.travellers %}
+<div class="trav-table">
+    <h4><svg class="i"><use href="#i-users"/></svg> Travellers{% if info.leg_label %} <span class="badge">{{ info.leg_label }}</span>{% endif %}</h4>
+    {% for t in info.travellers %}
+    <div class="trav-row">
+        <span class="n">{{ forloop.counter }}</span>
+        <b>{{ t.name }}</b>
+        <span class="muted">{{ t.age }} yrs &middot; {{ t.gender }}</span>
+        <span class="seat-chip">{% if t.seat %}Seat {{ t.seat }}{% else %}Seat at check-in{% endif %}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

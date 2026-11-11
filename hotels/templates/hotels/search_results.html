@@ -61,7 +61,7 @@
             {% for h in hotels %}
                 <article class="rcard stay">
                     <a class="thumb ph ph-{{ h.hotel.placeholder_variant }}" href="{% url 'hotels:hotel_detail' h.hotel.id %}{% if stay_query %}?{{ stay_query }}{% endif %}" aria-label="{{ h.hotel.name }}">
-                        {% if h.hotel.image_url %}<img src="{{ h.hotel.image_url }}" alt="{{ h.hotel.name }}" loading="lazy" onerror="this.remove()">{% endif %}
+                        <img src="{{ h.hotel.photo_url }}" alt="{{ h.hotel.name }}" loading="lazy" onerror="this.remove()">
                     </a>
 
                     <div class="stay-body">
@@ -105,6 +105,14 @@
                 <div class="ico"><svg class="i"><use href="#i-building"/></svg></div>
                 <h3>Find your stay</h3>
                 <p>Enter a destination and your dates to see hotels with photos, facilities and room prices.</p>
+                {% if locations %}
+                <p class="pop-title">Popular destinations</p>
+                <div class="pop">
+                    {% for place in locations|slice:":8" %}
+                    <a class="pop-chip" href="?destination={{ place|urlencode }}"><svg class="i"><use href="#i-pin"/></svg>{{ place }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
         {% endif %}
     </section>

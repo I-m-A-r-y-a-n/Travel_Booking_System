@@ -51,6 +51,10 @@
                 <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> {% if info.kind == 'hotel' %}Guests{% elif info.kind == 'bus' %}Seats{% else %}Passengers{% endif %}</small><b>{{ info.passengers }}</b></div>
                 <div class="fact"><small><svg class="i"><use href="#i-calendar"/></svg> Booked on</small><b>{{ info.booked_on|date:"d M Y" }}</b></div>
             </div>
+            {% include 'partials/travellers.html' %}
+            {% for info in others %}
+                <p class="banner-note ok"><svg class="i"><use href="#i-check-circle"/></svg><span>Your {{ info.leg_label|lower }} trip ({{ info.origin }} &rarr; {{ info.dest }}, {{ info.depart|date:"d M" }}) {% if success %}is confirmed too.{% else %}is held together with this one.{% endif %}</span></p>
+            {% endfor %}
         </div>
 
         <aside class="ticket-stub">
@@ -81,7 +85,7 @@
 <section class="result-banner fail">
     <div class="result-icon"><svg class="i"><use href="#i-x-circle"/></svg></div>
     <h1>Payment failed</h1>
-    <p>We could not complete your payment, so your booking was not confirmed. No money was charged.</p>
+    <p>We could not complete your payment, so your booking is not confirmed yet. No money was charged.{% if can_retry %} Your {% if info.kind == 'hotel' %}room is{% else %}seats are{% endif %} still held for a few minutes, so you can try again.{% endif %}</p>
 </section>
 <section class="box fail-card">
     <h3>What happened</h3>
@@ -89,7 +93,7 @@
     <div class="fare-row"><span>Method</span><b>{{ payment.get_payment_method_display }}</b></div>
     <div class="fare-row"><span>Amount</span><b>&#8377;{{ payment.amount|floatformat:"0g" }}</b></div>
     <div class="ticket-actions">
-        <a class="btn btn-lg" href="{% url 'home' %}">Search again</a>
+        {% if can_retry %}<a class="btn btn-lg" href="{% url 'payments:choose_payment_method' booking.id %}">Try payment again</a>{% else %}<a class="btn btn-lg" href="{% url 'home' %}">Search again</a>{% endif %}
         <a class="btn btn-ghost btn-lg" href="{% url 'my_bookings' %}">My bookings</a>
     </div>
 </section>

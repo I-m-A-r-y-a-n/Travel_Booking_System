@@ -62,9 +62,17 @@ def _details(info):
         rows.append(('BUS TYPE', info['tag']))
     rows += [
         ('TRAVEL DATE', _day(info['depart'])), ('DEPARTS', _clock(info['depart'])), ('ARRIVES', arrives),
-        ('PASSENGERS' if info['kind'] == 'flight' else 'SEATS', str(info['passengers'])),
-        ('BOOKED ON', _day(info['booked_on'])),
     ]
+    names = ', '.join(t['name'] for t in info.get('travellers', [])) or str(info['passengers'])
+    if len(names) > 30:
+        names = names[:28].rstrip(', ') + '...'
+    seats = info.get('seats', '')
+    if len(seats) > 30:
+        seats = seats[:28].rstrip(', ') + '...'
+    if info['kind'] == 'flight':
+        rows += [('PASSENGERS', names), ('SEATS', seats or 'At check-in')]
+    else:
+        rows += [('SEATS', seats or str(info['passengers'])), ('PASSENGERS', names)]
     return rows
 
 

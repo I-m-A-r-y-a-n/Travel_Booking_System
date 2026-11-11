@@ -11,6 +11,11 @@
     <li>Confirmation</li>
 </ol>
 
+<div class="hold-bar" data-hold-seconds="{{ seconds_left }}" data-hold-url="{% url 'my_bookings' %}">
+    <svg class="i"><use href="#i-clock"/></svg>
+    <span>Complete your payment within <b data-hold-clock>{{ hold_minutes }}:00</b> to keep your {% if info.kind == 'hotel' %}room{% else %}seats{% endif %}.</span>
+</div>
+
 <div class="detail-grid">
     <form method="post" action="{% url 'payments:process_payment' booking.id %}" data-once class="box">
         {% csrf_token %}
@@ -29,11 +34,13 @@
         </div>
         <div class="sim-note"><svg class="i"><use href="#i-info"/></svg><span>This is a simulated payment for a college project. No real money is charged and no card details are needed.</span></div>
         <p></p>
-        <button type="submit" class="btn-lg btn-block pay-btn" data-busy="Processing&hellip;"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ booking.total_price|floatformat:"0g" }}</button>
+        <button type="submit" class="btn-lg btn-block pay-btn" data-busy="Processing&hellip;"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ amount|floatformat:"0g" }}</button>
     </form>
 
     <aside class="fare-box sticky">
         <h3>Booking summary</h3>
+        {% for info in legs %}
+        {% if legs|length > 1 %}<p class="leg-tag">{{ info.leg_label }}</p>{% endif %}
         <div class="sum-trip">
             <span class="logo {{ info.kind }}">{{ info.logo_text }}</span>
             <div><b>{{ info.title }}</b><small>{{ info.number }}{% if info.tag and info.kind != 'hotel' %} &middot; {{ info.tag }}{% endif %}</small></div>
@@ -47,7 +54,8 @@
             <div class="fare-row"><span>Departs</span><b>{{ info.depart|date:"d M, H:i" }}</b></div>
         {% endif %}
         <div class="fare-row"><span>&#8377;{{ info.unit_price|floatformat:"0g" }} &times; {{ info.qty_text }}</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>
-        <div class="fare-total"><span>Total payable</span><b>&#8377;{{ info.total|floatformat:"0g" }}</b></div>
+        {% endfor %}
+        <div class="fare-total"><span>Total payable</span><b>&#8377;{{ amount|floatformat:"0g" }}</b></div>
         <p class="secure"><svg class="i"><use href="#i-shield"/></svg> Secure checkout</p>
     </aside>
 </div>

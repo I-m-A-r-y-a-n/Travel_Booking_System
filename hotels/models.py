@@ -1,6 +1,7 @@
 from django.db import models
 
 from travelbooking.helpers import parse_amenities
+from travelbooking.media import HOTEL_PHOTOS, pick
 
 DEFAULT_HOTEL_AMENITIES = 'Free WiFi, Air conditioning, 24x7 front desk, Room service, Parking'
 
@@ -28,6 +29,11 @@ class Hotel(models.Model):
     @property
     def amenity_items(self):
         return parse_amenities(self.amenities)
+
+    @property
+    def photo_url(self):
+        """The hotel's own photo if one was added, otherwise a good-looking one from the web."""
+        return self.image_url or pick(HOTEL_PHOTOS, self.pk)
 
     @property
     def placeholder_variant(self):

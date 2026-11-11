@@ -58,6 +58,8 @@
             <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
             <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></symbol>
             <symbol id="i-rupee" viewBox="0 0 24 24"><path d="M6 4h12"/><path d="M6 9h12"/><path d="M8 4c5 0 7 2 7 5s-2 5-7 5l8 6"/></symbol>
+            <symbol id="i-filter" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
         </defs>
     </svg>
     {% with page=request.resolver_match.url_name %}
@@ -92,7 +94,7 @@
 
     {% if messages %}
     <div class="toasts">
-        {% for message in messages %}<div class="toast {{ message.tags }}">{{ message }}</div>{% endfor %}
+        {% for message in messages %}<div class="toast {{ message.tags }}" role="status"><svg class="i"><use href="#i-{% if message.tags == 'success' %}check{% else %}info{% endif %}"/></svg><span>{{ message }}</span></div>{% endfor %}
     </div>
     {% endif %}
 

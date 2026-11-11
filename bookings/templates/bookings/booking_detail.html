@@ -7,7 +7,7 @@
 <a class="back-link" href="{% url 'my_bookings' %}"><svg class="i"><use href="#i-arrow-left"/></svg> Back to my bookings</a>
 
 <section class="bd-hero {{ kind }}">
-    {% if kind == 'hotel' and item.image_url %}<img class="bd-img" src="{{ item.image_url }}" alt="{{ item.name }}" onerror="this.remove()">{% endif %}
+    {% if kind == 'hotel' %}<img class="bd-img" src="{{ item.photo_url }}" alt="{{ item.name }}" onerror="this.remove()">{% endif %}
     <div class="bd-in">
         <div class="carrier">
             <span class="logo lg {{ kind }}">{{ info.logo_text }}</span>
@@ -22,6 +22,13 @@
         </div>
     </div>
 </section>
+
+{% if hold_expires %}
+<div class="banner-note"><svg class="i"><use href="#i-clock"/></svg><span>Payment pending. Your {% if kind == 'hotel' %}room is{% else %}seats are{% endif %} held until {{ hold_expires|time:"H:i" }}.</span><a class="btn btn-sm" href="{% url 'payments:choose_payment_method' booking.id %}">Pay now</a></div>
+{% endif %}
+{% if booking.status == 'cancelled' and booking.refund_amount %}
+<div class="banner-note ok"><svg class="i"><use href="#i-check-circle"/></svg><span>Cancelled on {{ booking.cancelled_at|date:"d M Y, H:i" }}. Refund of <b>&#8377;{{ booking.refund_amount|floatformat:"0g" }}</b> is on its way to your original payment method.</span></div>
+{% endif %}
 
 <ol class="timeline">
     {% for step in timeline %}
@@ -57,6 +64,7 @@
                 <div class="fact"><small><svg class="i"><use href="#i-users"/></svg> {% if kind == 'bus' %}Seats{% else %}Passengers{% endif %}</small><b>{{ info.passengers }}</b></div>
                 <div class="fact"><small><svg class="i"><use href="#i-{{ info.icon }}"/></svg> {% if kind == 'bus' %}Bus no.{% else %}Flight no.{% endif %}</small><b>{{ info.number }}</b></div>
             </div>
+            {% include 'partials/travellers.html' %}
             {% endif %}
         </section>
 
@@ -115,8 +123,8 @@
         <div class="side-actions">
             {% if booking.status == 'confirmed' %}
                 <a class="btn btn-lg btn-block pay-btn" href="{% url 'download_ticket' booking.id %}"><svg class="i"><use href="#i-download"/></svg> Download ticket</a>
-                {% if not review %}<a class="btn btn-ghost btn-block" href="{% url 'reviews:write_review' booking.id %}">Write a review</a>{% endif %}
-                <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
+                {% if not review and can_review %}<a class="btn btn-ghost btn-block" href="{% url 'reviews:write_review' booking.id %}">Write a review</a>{% endif %}
+                {% if refund.allowed %}<a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>{% endif %}
             {% elif booking.status == 'pending' %}
                 <a class="btn btn-lg btn-block pay-btn" href="{% url 'payments:choose_payment_method' booking.id %}"><svg class="i"><use href="#i-lock"/></svg> Pay &#8377;{{ info.total|floatformat:"0g" }}</a>
                 <a class="btn btn-ghost btn-block" href="{% url 'cancel_booking' booking.id %}">Cancel booking</a>
